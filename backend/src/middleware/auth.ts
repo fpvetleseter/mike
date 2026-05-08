@@ -1,37 +1,40 @@
 import { Request, Response, NextFunction } from "express";
-import { createClient } from "@supabase/supabase-js";
+import { createServerSupabase } from "../lib/supabase";
 
 export async function requireAuth(
   req: Request,
   res: Response,
   next: NextFunction,
 ): Promise<void> {
-  const auth = req.headers.authorization ?? "";
-  if (!auth.startsWith("Bearer ")) {
-    res.status(401).json({ detail: "Missing or invalid Authorization header" });
-    return;
-  }
-  const token = auth.slice(7).trim();
-
-  const supabaseUrl = process.env.SUPABASE_URL ?? "";
-  const serviceKey = process.env.SUPABASE_SECRET_KEY ?? "";
-
-  if (!supabaseUrl || !serviceKey) {
-    res.status(500).json({ detail: "Server auth is not configured" });
+  // SECURITY: Extract token from header only, never body
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Bearer ")) {
+    res.status(401).json({
+      data: null,
+      error: "Autentisering kreves. Vennligst logg inn igjen.",
+    });
     return;
   }
 
-  const admin = createClient(supabaseUrl, serviceKey, {
-    auth: { persistSession: false },
-  });
-  const { data } = await admin.auth.getUser(token);
-  if (!data.user) {
-    res.status(401).json({ detail: "Invalid or expired token" });
+  const token = authHeader.slice(7);
+  const supabase = createServerSupabase();
+
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser(token);
+
+  if (error || !user) {
+    res.status(401).json({
+      data: null,
+      error: "Ugyldig sesjon. Vennligst logg inn igjen.",
+    });
     return;
   }
 
-  res.locals.userId = data.user.id;
-  res.locals.userEmail = data.user.email?.toLowerCase() ?? "";
+  // SECURITY: attach from validated JWT, not from request body
+  res.locals.userId = user.id;
+  res.locals.userEmail = user.email?.toLowerCase() ?? "";
   res.locals.token = token;
   next();
 }

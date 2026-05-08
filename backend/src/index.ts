@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
+import { createServerSupabase } from "./lib/supabase";
 import { chatRouter } from "./routes/chat";
 import { projectsRouter } from "./routes/projects";
 import { projectChatRouter } from "./routes/projectChat";
@@ -32,8 +33,24 @@ app.use("/user", userRouter);
 app.use("/users", userRouter);
 app.use("/download", downloadsRouter);
 
-app.get("/health", (_req, res) => {
-  res.json({ ok: true, service: "juridisk-backend", timestamp: new Date().toISOString() });
+app.get("/health", async (_req, res) => {
+  try {
+    const db = createServerSupabase();
+    await db.from("profiles").select("id").limit(1);
+    res.json({
+      ok: true,
+      service: "juridisk-backend",
+      timestamp: new Date().toISOString(),
+      database: "connected",
+    });
+  } catch {
+    res.status(503).json({
+      ok: false,
+      service: "juridisk-backend",
+      timestamp: new Date().toISOString(),
+      database: "error",
+    });
+  }
 });
 
 app.listen(PORT, () => {
