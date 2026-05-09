@@ -53,18 +53,21 @@ The AGPL applies to code structure, not knowledge. The moat is:
 ## 3. Tech Stack
 
 ### Frontend
-- **Framework:** Next.js 14+ with App Router
+- **Framework:** Next.js 16 with App Router
 - **Language:** TypeScript (strict mode, no `any`)
-- **Styling:** Tailwind CSS + shadcn/ui components
+- **Runtime UI:** React 19
+- **Styling:** Tailwind CSS 4 + shadcn/ui components
 - **AI streaming:** Vercel AI SDK (`useChat`, `useCompletion`)
 - **Auth client:** `@supabase/auth-helpers-nextjs`
 
 ### Backend
 - **Runtime:** Node.js 20+ on Railway (persistent process, no serverless timeouts)
 - **Framework:** Express.js with TypeScript
-- **AI calls:** Anthropic TypeScript SDK (`@anthropic-ai/sdk`) -- server only, never client
+- **AI calls:** Anthropic TypeScript SDK (`@anthropic-ai/sdk`) -- server only, never client.
+  Primary model is `claude-opus-4-7` via `ANTHROPIC_MODEL`.
 - **Document processing:** LibreOffice headless (DOCX to PDF), `pdf-parse` (text extraction)
-- **Embeddings:** Supabase `pgvector` extension with `text-embedding-3-small` from OpenAI
+- **Embeddings:** Supabase `pgvector` extension with OpenAI `text-embedding-3-small`.
+  The shared backend embedding helper is implemented in `backend/src/services/embeddings.ts`.
 
 ### Database and Auth
 - **Provider:** Supabase (PostgreSQL)
@@ -77,9 +80,10 @@ The AGPL applies to code structure, not knowledge. The moat is:
 - **Max file size:** 10MB per upload, enforced at middleware level
 
 ### Legal Data
-- **Source:** Lovdata Pro API (authenticated, rate-limited)
-- **Caching:** Redis on Railway or Supabase KV -- 24-hour TTL on law text, 1-hour TTL on search results
-- **Never stored:** Lovdata full-text content is never persisted to the database. Only citation metadata (law name, section, URL) is stored.
+- **Source:** Lovdata public data ingestion into `law_chunks` for Phase 1 retrieval
+- **Caching:** Not implemented in Day 3. Redis caching is deferred to Phase 2.
+- **Stored legal corpus:** Ingested Lovdata law chunks are stored in `law_chunks` with embeddings.
+  User-facing message storage only stores citation metadata in `messages.citations`.
 
 ### Payments
 - **Provider:** Stripe
@@ -381,11 +385,11 @@ The Lovdata Pro API is the source of truth for all Norwegian law content.
 
 | Task | Model | Reason |
 |---|---|---|
-| Legal Q&A with document context | `claude-sonnet-4-5` | Best reasoning, cites accurately |
+| Legal Q&A with document context | `claude-opus-4-7` | Primary model currently configured for Phase 1 quality |
 | Document summarization (first pass) | `claude-haiku-4-5` | Cheap, fast, sufficient for summary |
 | Document risk flagging | `claude-sonnet-4-5` | Requires nuanced legal reasoning |
 | Draft generation | `claude-sonnet-4-5` | Quality over cost for user-facing output |
-| Embedding generation | `text-embedding-3-small` (OpenAI) | Best price/quality for pgvector |
+| Embedding generation | `text-embedding-3-small` (OpenAI) | Implemented via `backend/src/services/embeddings.ts` |
 
 Never use a more expensive model where a cheaper one is sufficient. Always log model used,
 input tokens, and output tokens per request to track cost against the $20/month hard cap.
@@ -474,3 +478,70 @@ before writing any code:
 When in doubt, ask. Ferdinand is the sole decision-maker on product, legal, and architecture
 questions. Do not make autonomous decisions on anything that touches billing, legal content policy,
 or AGPL compliance.
+
+---
+
+## 14. Session Handoff Notes
+
+This section is updated at the end of each build session. It is the first thing a new session
+should read after the rest of CLAUDE.md.
+
+### After Day 3
+
+**Confirmed working locally:**
+- TypeScript build: `npm run build` passes in `backend/`
+- Auth middleware: Bearer token is validated with `supabase.auth.getUser()`, and new Day 3 routes can read `req.user`
+- Rate limit middleware: chat route uses Day 2 `checkQueryLimit`; query count is incremented once after a successful assistant response
+- Lovdata retrieval: semantic search service exists and calls `match_law_chunks` pgvector RPC
+- Document upload service: R2 upload, PDF extraction, chunking, embeddings, and `document_chunks` upsert are implemented
+- Chat route: SSE streaming route exists with disclaimer enforcement and citation extraction
+
+**Not yet confirmed in this session:**
+- Live Railway health check
+- Valid Supabase JWT route checks
+- Real Anthropic/OpenAI/R2 calls
+- PDF upload status transition within 60 seconds
+- Rate-limit exhaustion behavior with a real profile
+
+**Known deviations from original spec:**
+- Current migrations use `law_chunks.content/source_url` rather than `chunk_text/url`; Day 3 code maps those columns to the route/service interfaces.
+- Current migrations use `document_chunks.content` rather than `chunk_text`; Day 3 document code writes to `content`.
+- Vector search is implemented through Supabase RPC functions in `supabase/migrations/004_vector_search_functions.sql` because Supabase JS cannot express pgvector `<=>` ordering directly.
+- LibreOffice availability on Railway is not verified in this session.
+- `ANTHROPIC_MODEL` was added to the expected backend environment but may still need to be set in Railway.
+
+**Route deviation resolved:**
+- Mike-derived `documents.ts` moved to `backend/src/core/routes/documents.ts` (AGPL-preserved, inactive)
+- Juridisk v1 document API is in `backend/src/routes/documents.ts`, mounted at `/api/v1/documents`
+- No conflicting mounts remain
+
+**SSE endpoint: not yet confirmed against live Railway.** Run the curl test in Task 5
+before starting Day 4 frontend work.
+
+**What the next session (Day 4) must do first:**
+- Read this section before writing frontend code.
+- Confirm backend SSE endpoint with a curl test before building the chat UI against it:
+```bash
+curl -N -H "Authorization: Bearer YOUR_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Hva er oppsigelsestiden?","conversationId":"YOUR_UUID"}' \
+  https://YOUR_RAILWAY_URL/api/v1/ai/chat
+```
+- Check Railway logs for any startup errors before assuming the backend is clean.
+
+**Open decisions deferred:**
+- Redis caching for Lovdata search results (currently no caching -- Phase 2)
+- LibreOffice on Railway: confirm nixpacks config installs it or document the workaround
+- Decide whether to migrate existing `content` columns to `chunk_text` later, or keep the deployed schema names and update docs/specs consistently
+
+### After Day 4
+
+- Chat page: `frontend/src/app/(dashboard)/chat/page.tsx` (Server Component, auth guard)
+- Chat layout: `frontend/src/app/(dashboard)/chat/ChatLayout.tsx` (Client Component, all state)
+- SSE stream parsing: handles `type=delta` and `type=done` events from the backend, including both `text` and `content` delta fields
+- Supabase SSR clients: `frontend/src/lib/supabase/client.ts` (browser) and `frontend/src/lib/supabase/server.ts` (server)
+- Norwegian strings: `frontend/src/lib/nb.ts` -- add all new strings here, never inline
+- Document upload: `frontend/src/components/documents/DocumentUpload.tsx` -- MIME and size validation before fetch
+- Route guard: `frontend/src/middleware.ts` protects `/chat` and redirects unauthenticated users to `/login`
+- Live SSE endpoint: not yet confirmed against Railway with a real Supabase JWT in this local session
+- Next task: Day 5 document processing backend integration and live E2E checks -- see `ROADMAP.md` Day 5 tasks

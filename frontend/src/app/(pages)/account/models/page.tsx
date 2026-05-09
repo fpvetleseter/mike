@@ -73,7 +73,7 @@ export default function ModelsAndApiKeysPage() {
                 <div className="space-y-4 max-w-xl">
                     <ApiKeyField
                         label="Anthropic (Claude) API Key"
-                        placeholder="sk-ant-…"
+                        placeholder="Anthropic API key"
                         initialValue={profile?.claudeApiKey ?? ""}
                         onSave={(value) =>
                             updateApiKey("claude", value.trim() || null)

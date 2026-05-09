@@ -15,9 +15,8 @@ const ebGaramond = EB_Garamond({
 });
 
 export const metadata: Metadata = {
-    title: "Mike - AI Legal Platform",
-    description:
-        "AI-powered legal document analysis and contract review platform.",
+    title: "Juridisk",
+    description: "AI-drevet juridisk assistent for norske gründere.",
     icons: {
         icon: [
             { url: "/icon.svg", type: "image/svg+xml" },
@@ -33,7 +32,7 @@ export default function RootLayout({
     children: React.ReactNode;
 }>) {
     return (
-        <html lang="en">
+        <html lang="nb">
             <body
                 className={`${inter.variable} ${ebGaramond.variable} font-sans antialiased`}
             >

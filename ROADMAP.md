@@ -1,5 +1,37 @@
 # ROADMAP.md — Juridisk Build Roadmap
 
+## Current Build State
+
+**Last updated:** 2026-05-09
+**Phase:** 1 -- MVP
+**Day completed:** 4 (frontend chat UI implemented locally; live checks pending)
+
+### What is live
+- Supabase: eu-west-1, pgvector enabled, Phase 1 tables migrated with RLS per Day 1/2 notes
+- Railway: backend deployment exists per project context; health check URL was not verified in this session
+- Vercel: frontend is expected at fpvetleseter.com/juridisk; Day 4 chat UI is implemented locally
+- Cloudflare R2: bucket `juridisk-documents` configured in env template with endpoint `https://79a4bc1dce5114ee00a16a215e658a91.r2.cloudflarestorage.com`
+- Lovdata ingestion: script exists and writes Norwegian law embeddings to `law_chunks`
+
+### What the backend can now do (after Day 3 local build)
+- `POST /api/v1/ai/chat` -- authenticated, rate-limited, RAG pipeline, SSE streaming, citations, disclaimer
+- `POST /api/v1/conversations` and GET variants -- conversation management
+- `POST /api/v1/documents/upload` -- R2 storage, PDF extraction, chunking, embeddings, async processing
+- `GET/DELETE /api/v1/documents` -- document library management
+
+### What is not yet built
+- Stripe billing routes (Day 6)
+- Landing page and onboarding (Day 7)
+- Document risk analysis -- two-pass pipeline (Phase 2)
+- Drafting agent (Phase 2)
+- Live Day 3 Definition of Done checks with real Supabase JWT, Anthropic, OpenAI, R2, and Railway logs
+
+### Current Build State (after Day 4)
+Frontend chat UI is implemented locally. Auth guard works through Next.js middleware and server-side
+Supabase session checks before rendering `/chat`. SSE streaming is wired to the Railway backend URL.
+Citation display, disclaimer footer, conversation sidebar, and document upload are implemented.
+Day 5 document processing backend integration and live E2E verification are next.
+
 **Format:** Phases, not time-boxes. Each phase has a definition of done. Phase 1 is broken into
 day-level tasks. Phases 2 and 3 are task-level but not day-level (scope will be clearer after
 Phase 1 ships and real user feedback arrives).
@@ -86,22 +118,23 @@ asking a legal question and getting a grounded, cited Norwegian-language answer.
 
 **Tasks:**
 
-- [ ] Fork `willchen96/mike` into Ferdinand's GitHub account as `juridisk`
-- [ ] Create `/src/core/` directory, move all Mike-derived files into it, add `README.md` with
+- [DONE] Fork `willchen96/mike` into Ferdinand's GitHub account as `juridisk`
+- [DONE] Create `/src/core/` directory, move all Mike-derived files into it, add `README.md` with
       AGPL-3.0 notice and link to upstream repo
-- [ ] Create `/src/proprietary/` directory with `.gitkeep` and a `LICENSE` file (proprietary)
-- [ ] Set up `tsconfig.json` with strict mode in both root and `/backend/`
-- [ ] Install root dependencies: Next.js 14, TypeScript, Tailwind, shadcn/ui init
-- [ ] Install backend dependencies: Express, @anthropic-ai/sdk, @supabase/supabase-js,
+- [DONE] Create `/src/proprietary/` directory with `.gitkeep` and a `LICENSE` file (proprietary)
+- [DONE] Set up `tsconfig.json` with strict mode in both root and `/backend/`
+- [DONE] Install root dependencies: Next.js 14, TypeScript, Tailwind, shadcn/ui init
+      > Note: Current frontend package uses Next.js 16, React 19, and Tailwind 4.
+- [DONE] Install backend dependencies: Express, @anthropic-ai/sdk, @supabase/supabase-js,
       stripe, zod, pdf-parse, cors, helmet
-- [ ] Create `.env.example` with all required variables (no real values)
-- [ ] Create `.gitignore` that excludes `.env*` files (except `.env.example`)
-- [ ] Create Supabase project (eu-west-1 region)
-- [ ] Enable pgvector extension in Supabase: `create extension if not exists vector`
-- [ ] Create Railway project, link to GitHub repo `/backend` directory
-- [ ] Create Vercel project, link to GitHub repo root directory
-- [ ] Create Cloudflare R2 bucket named `juridisk-documents` (EU region)
-- [ ] Commit baseline with message: `chore: initial project structure, AGPL separation`
+- [DONE] Create `.env.example` with all required variables (no real values)
+- [DONE] Create `.gitignore` that excludes `.env*` files (except `.env.example`)
+- [DONE] Create Supabase project (eu-west-1 region)
+- [DONE] Enable pgvector extension in Supabase: `create extension if not exists vector`
+- [DONE] Create Railway project, link to GitHub repo `/backend` directory
+- [DONE] Create Vercel project, link to GitHub repo root directory
+- [DONE] Create Cloudflare R2 bucket named `juridisk-documents` (EU region)
+- [DONE] Commit baseline with message: `chore: initial project structure, AGPL separation`
 
 **Deliverable:** Repo exists, deploys are configured (not yet deploying real code), directories
 are correctly separated, no secrets are committed.
@@ -112,9 +145,9 @@ are correctly separated, no secrets are committed.
 
 **Tasks:**
 
-- [ ] Write Supabase migration: `profiles`, `documents`, `conversations`, `messages` tables
+- [DONE] Write Supabase migration: `profiles`, `documents`, `conversations`, `messages` tables
       (schema in `CLAUDE.md` Section 12)
-- [ ] Write Supabase migration: `document_chunks` table for pgvector embeddings
+- [DONE] Write Supabase migration: `document_chunks` table for pgvector embeddings
       ```sql
       create table public.document_chunks (
         id uuid primary key default gen_random_uuid(),
@@ -127,16 +160,17 @@ are correctly separated, no secrets are committed.
       );
       create index on document_chunks using hnsw (embedding vector_cosine_ops);
       ```
-- [ ] Write RLS policies for all tables (pattern from `CLAUDE.md` Section 12)
-- [ ] Apply migrations: `supabase db push`
-- [ ] Generate TypeScript types: `supabase gen types typescript > src/types/database.ts`
+- [DONE] Write RLS policies for all tables (pattern from `CLAUDE.md` Section 12)
+- [DONE] Apply migrations: `supabase db push`
+- [DONE] Generate TypeScript types: `supabase gen types typescript > src/types/database.ts`
 - [ ] Configure Supabase Auth: enable magic link, enable Google OAuth
       (Google OAuth: register app in Google Cloud Console, add redirect URL)
+      > Note: Auth middleware exists; login UI/OAuth runtime verification is still pending.
 - [ ] Build auth pages: `/app/(auth)/login/page.tsx` -- magic link form + Google button
 - [ ] Build auth callback handler: `/app/(auth)/callback/route.ts`
 - [ ] Test: sign up with magic link, confirm session persists, confirm `profiles` row created
       (use a Supabase Auth trigger to auto-create the profile row on `auth.users` insert)
-- [ ] Write the trigger:
+- [DONE] Write the trigger:
       ```sql
       create or replace function public.handle_new_user()
       returns trigger as $$
@@ -161,22 +195,25 @@ types are generated.
 
 **Tasks:**
 
-- [ ] Create `backend/src/index.ts`: Express app with `helmet`, `cors` (whitelist Vercel domain),
+- [DONE] Create `backend/src/index.ts`: Express app with `helmet`, `cors` (whitelist Vercel domain),
       JSON body parser, health check at `GET /health`
-- [ ] Create `backend/src/middleware/auth.ts`: JWT validation via Supabase
+- [DONE] Create `backend/src/middleware/auth.ts`: JWT validation via Supabase
       ```typescript
       // SECURITY: extract Bearer token, call supabase.auth.getUser(token)
       // Attach user to req.user, reject 401 if invalid
       // Never trust user_id from request body
       ```
-- [ ] Create `backend/src/middleware/ratelimit.ts`: per-user rate limiting (see `AGENTS.md` 2.3)
-- [ ] Create `backend/src/middleware/validate.ts`: zod-based request validation wrapper
-- [ ] Create `backend/src/services/anthropic.ts`: single file that owns all Claude API calls,
-      exports `streamLegalResponse()` and `generateDocumentSummary()`
-- [ ] Create `backend/src/services/lovdata.ts`: Lovdata Pro API client with caching
-      (use node-cache for in-process caching in Phase 1 -- Redis in Phase 2)
+- [DONE] Create `backend/src/middleware/ratelimit.ts`: per-user rate limiting (see `AGENTS.md` 2.3)
+- [DONE] Create `backend/src/middleware/validate.ts`: zod-based request validation wrapper
+- [DONE] Create `backend/src/services/anthropic.ts`: single file that owns all Claude API calls,
+      exports `streamLegalResponse()`
+- [DONE] Create `backend/src/services/lovdata.ts`: Lovdata retrieval service
+      (semantic search over ingested `law_chunks`)
+      > Note: Day 3 implementation performs semantic search against ingested `law_chunks`; caching is deferred to Phase 2.
 - [ ] Verify Railway deployment: push to main, confirm `GET /health` returns 200
+      > Note: deferred to next session -- no Railway credentials/log access were used in this local build session.
 - [ ] Set all environment variables in Railway dashboard
+      > Note: deferred to next session -- `ANTHROPIC_MODEL` should be confirmed in Railway.
 
 **Deliverable:** Backend is deployed to Railway, health check passes, auth middleware is working
 (test with a Supabase JWT from the frontend).
@@ -187,7 +224,7 @@ types are generated.
 
 **Tasks:**
 
-- [ ] Create `backend/src/routes/ai.ts`: `POST /api/v1/ai/chat`
+- [DONE] Create `backend/src/routes/ai.ts`: `POST /api/v1/ai/chat`
       - Validate request (zod: `{ message: string, conversationId: string }`)
       - Auth middleware (req.user populated)
       - Rate limit middleware
@@ -196,13 +233,15 @@ types are generated.
       - Call `streamLegalResponse()` -- stream SSE to client
       - On stream end: save assistant message + citations to `messages` table
       - On stream end: increment `profiles.queries_today`
-- [ ] Create `backend/src/routes/conversations.ts`:
+- [DONE] Create `backend/src/routes/conversations.ts`:
       - `POST /api/v1/conversations` -- create new conversation, return id
       - `GET /api/v1/conversations` -- list user's conversations (last 20)
       - `GET /api/v1/conversations/:id/messages` -- get messages for conversation
-- [ ] Create the Legal Assistant system prompt file:
+- [DONE] Create the Legal Assistant system prompt file:
       `src/proprietary/prompts/legal-assistant.ts` (full prompt from `AGENTS.md` Section 3.2)
-- [ ] Build chat UI: `/app/(dashboard)/chat/page.tsx`
+      > Note: Actual backend path is `backend/src/proprietary/prompts/legal-assistant.ts`.
+- [DONE] Build chat UI: `/app/(dashboard)/chat/page.tsx`
+      > Note: Actual frontend path is `frontend/src/app/(dashboard)/chat/page.tsx`.
       - Message list with streaming (Vercel AI SDK `useChat` or manual SSE reader)
       - Input box, send button
       - Disclaimer footer
@@ -211,6 +250,7 @@ types are generated.
       - Error state in Norwegian with retry button
 - [ ] Test end-to-end: ask "Hva er oppsigelsestiden for en fast ansatt?" -- verify Lovdata
       citations appear, disclaimer is present, rate limit counter decrements
+      > Note: pending live Supabase JWT and Railway runtime verification.
 
 **Deliverable:** Core chat works. A user can ask a Norwegian legal question and get a grounded,
 cited, streamed response. This is the product's core value. Everything else is infrastructure.
@@ -222,7 +262,8 @@ cited, streamed response. This is the product's core value. Everything else is i
 **Tasks:**
 
 - [ ] Install LibreOffice on Railway (add to Dockerfile or nixpacks config)
-- [ ] Create `backend/src/services/documents.ts`:
+      > Note: deferred to next session -- availability was not verified.
+- [DONE] Create `backend/src/services/documents.ts`:
       - `processDocument(file, userId, documentId)`:
         1. Validate MIME type and size
         2. Upload original to R2 at `{userId}/{documentId}/{filename}`
@@ -233,14 +274,17 @@ cited, streamed response. This is the product's core value. Everything else is i
         7. Upsert chunks to `document_chunks` via Supabase
         8. Update `documents.status` to `'ready'`
         9. On error: set status to `'error'`, log error metadata
-- [ ] Create `backend/src/routes/documents.ts`:
+- [DONE] Create `backend/src/routes/documents.ts`:
       - `POST /api/v1/documents/upload` -- multer middleware, trigger processDocument async
       - `GET /api/v1/documents` -- list user's documents
       - `DELETE /api/v1/documents/:id` -- delete document, R2 object, and chunks
-- [ ] Add document context to chat route: if `documentId` is in the request, retrieve relevant
+- [DONE] Add document context to chat route: if `documentId` is in the request, retrieve relevant
       chunks via pgvector similarity search and inject into `{{DOCUMENT_CONTEXT}}`
-- [ ] Build document upload UI: drag-and-drop + file picker, progress indicator
-- [ ] Build document library sidebar: list with status badges, Supabase Realtime status updates
+      > Note: Juridisk v1 document routes now live in `backend/src/routes/documents.ts`; the Mike-derived router is preserved inactive under `backend/src/core/routes/documents.ts`.
+- [DONE] Build document upload UI: drag-and-drop + file picker, progress indicator
+      > Note: Implemented in `frontend/src/components/documents/DocumentUpload.tsx`; live upload verification is pending credentials.
+- [DONE] Build document library sidebar: list with status badges, Supabase Realtime status updates
+      > Note: Phase 1 uses 3-second polling through `GET /api/v1/documents`; Supabase Realtime is deferred to Phase 2.
 - [ ] Test: upload a PDF employment contract, ask "hva er oppsigelsestiden?", verify the
       response references the specific contract clauses
 

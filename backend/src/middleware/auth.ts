@@ -1,6 +1,11 @@
 import { Request, Response, NextFunction } from "express";
 import { createServerSupabase } from "../lib/supabase";
 
+export interface AuthenticatedUser {
+  id: string;
+  email: string;
+}
+
 export async function requireAuth(
   req: Request,
   res: Response,
@@ -33,8 +38,11 @@ export async function requireAuth(
   }
 
   // SECURITY: attach from validated JWT, not from request body
+  req.user = { id: user.id, email: user.email?.toLowerCase() ?? "" };
   res.locals.userId = user.id;
   res.locals.userEmail = user.email?.toLowerCase() ?? "";
   res.locals.token = token;
   next();
 }
+
+export const authMiddleware = requireAuth;

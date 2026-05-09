@@ -203,26 +203,34 @@ answer in the same conversation, so that I can have a real back-and-forth legal 
 ## 4. Feature List: v1.0 (MVP)
 
 ### Authentication
+**Status: Partial -- Day 2 has backend auth middleware, but login UI is not verified as complete.**
+
 - Magic link login (Supabase Auth)
 - Google OAuth login
 - Session persistence (30-day refresh token)
 
 ### Chat Interface
+**Status: Backend implemented locally (Day 3). Runtime and frontend verification pending.**
+
 - Free-form legal Q&A (no document required)
-- Streaming AI responses (SSE)
-- Lovdata citations displayed below each response
-- Disclaimer appended to every response
-- Conversation history (sidebar)
+- Streaming AI responses (SSE from `/api/v1/ai/chat`)
+- Lovdata citations extracted and stored; display logic pending frontend
+- Disclaimer appended to every response by backend post-processing
+- Conversation history routes exist; sidebar UI pending
 - New conversation button
 
 ### Document Management
+**Status: Backend implemented locally (Day 3). Runtime and frontend verification pending.**
+
 - Upload PDF or DOCX (up to 10MB)
-- Processing status display (Supabase Realtime)
+- Processing status display (Supabase Realtime not wired; polling fallback acceptable for Day 4)
 - Document library sidebar
 - Ask questions about a specific document
-- Document-grounded responses with clause-level references
+- Document-grounded responses via `document_chunks` similarity search if `documentId` is present
 
 ### Rate Limiting and Billing
+**Status: Rate limiting middleware exists. Stripe billing not started (Day 6).**
+
 - Free tier: 10 queries/day, 3 document uploads/month
 - Rate limit messaging in Norwegian with upgrade prompt
 - Stripe Pro subscription (NOK 299/month)
@@ -230,11 +238,15 @@ answer in the same conversation, so that I can have a real back-and-forth legal 
 - Basic billing management (cancel, view status) via Stripe Customer Portal
 
 ### Onboarding
+**Status: Not started (Day 7).**
+
 - Single-screen onboarding modal (first login only)
 - Explains product scope and limitations
 - Persistent disclaimer in UI footer
 
 ### Landing Page
+**Status: Not started (Day 7).**
+
 - Above-the-fold value proposition in Norwegian
 - Feature highlights
 - Pricing table (Free vs Pro)
@@ -283,8 +295,8 @@ in v1 unless specified:
 | Time to first meaningful answer (new user) | Under 60 seconds from signup |
 | Document processing time (median, 10-page PDF) | Under 45 seconds |
 | Citation accuracy (manual spot-check, 20 queries) | Lovdata URL resolves and is relevant in 90%+ of cases |
-| Streaming response initiation latency | Under 2 seconds from query submission |
-| Mobile usability (manual test, iPhone SE + Android mid-range) | No broken layouts, all core flows completable |
+| Streaming response initiation latency | Under 2 seconds from query submission (frontend wired, measure in Day 5 E2E test) |
+| Mobile usability (manual test, iPhone SE + Android mid-range) | No broken layouts, all core flows completable (implemented in Day 4, manual test pending) |
 | Zero critical security issues | No exposed secrets, RLS working on all tables |
 
 ### Post-Launch (first 30 days)

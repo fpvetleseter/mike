@@ -9,6 +9,22 @@
 
 ## 1. Agent Overview
 
+### Implementation Status
+
+| Agent | Status | Notes |
+|---|---|---|
+| Legal Assistant Agent | Implemented locally; runtime verification pending | System prompt v1.0.0 lives in `backend/src/proprietary/prompts/legal-assistant.ts`; `/api/v1/ai/chat` streams SSE |
+| Document Analysis Agent | Not started | Phase 2 -- two-pass Haiku + Sonnet pipeline |
+| Drafting Agent | Not started | Phase 2 |
+| Lovdata Retrieval Service | Implemented locally; runtime verification pending | Queries `law_chunks` via pgvector RPC using cosine similarity |
+| Document Context Extraction | Implemented locally; runtime verification pending | Queries `document_chunks`, top-5 chunks by similarity, scoped to `user_id` and `document_id` |
+| Rate Limit Middleware | Implemented locally | 10 queries/day free tier, enforced server-side before AI route; Oslo exact reset still needs runtime review |
+
+**Prompt versions in production:**
+- legal-assistant: 1.0.0
+- document-summary: not deployed
+- document-risk: not deployed
+
 Juridisk uses three specialized agents. They do not run concurrently -- they are invoked
 sequentially based on the user's action and the availability of document context.
 
@@ -102,6 +118,11 @@ and injected into the agent context. The full pipeline is in `backend/src/servic
 7. Upsert chunks to `document_chunks` table in Supabase
 8. Update `documents.status` to `'ready'` and trigger Supabase Realtime event
 9. On any failure: set `documents.status` to `'error'`, log error metadata (not content)
+
+> Note: Frontend integration is implemented in `frontend/src/components/documents/DocumentUpload.tsx`.
+> It sends multipart/form-data to `POST /api/v1/documents/upload`. Status polling uses
+> `GET /api/v1/documents` every 3 seconds in Phase 1; Supabase Realtime is deferred to Phase 2.
+> The active document id is passed as `documentId` in the chat request body.
 
 ### 2.3 Rate Limit Middleware
 
