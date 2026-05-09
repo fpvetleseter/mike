@@ -10,7 +10,9 @@ function getLawTag(law: string): string {
 }
 
 export default function CitationCard({ citation }: CitationCardProps) {
-    const isLovdataUrl = citation.url.startsWith("https://lovdata.no");
+    const isLovdataUrl =
+        typeof citation.url === "string" &&
+        citation.url.startsWith("https://lovdata.no");
 
     return (
         <div className="rounded border border-slate-200 bg-slate-100 px-3 py-2 text-xs text-slate-700">
