@@ -142,7 +142,7 @@ aiRouter.post(
         (result) => result.similarity >= TOKEN_BUDGET.MIN_LOVDATA_RELEVANCE_SCORE,
       );
 
-      const { stream, getUsage, model } = await streamLegalResponse({
+      const { stream, getUsage, model, abort } = await streamLegalResponse({
         userMessage: message,
         conversationHistory: history,
         documentSummaryText: documentSummaryText ?? undefined,
@@ -153,6 +153,8 @@ aiRouter.post(
         lovdataResults,
         userId,
       });
+
+      req.on("close", () => abort());
 
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache");
@@ -217,6 +219,10 @@ aiRouter.post(
       );
       res.end();
     } catch (error) {
+      if (error instanceof Error && error.name === "APIUserAbortError") {
+        // Client disconnected mid-stream; stream was already cancelled.
+        return;
+      }
       console.error("AI chat failed", {
         error: error instanceof Error ? error.message : String(error),
         conversationId,

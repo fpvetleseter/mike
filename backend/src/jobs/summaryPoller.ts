@@ -23,7 +23,19 @@ export function startSummaryPoller(intervalMs = 30000): void {
   }, intervalMs);
 }
 
+let isPollerRunning = false;
+
 async function pollPendingSummaries(): Promise<void> {
+  if (isPollerRunning) return;
+  isPollerRunning = true;
+  try {
+    await doPollPendingSummaries();
+  } finally {
+    isPollerRunning = false;
+  }
+}
+
+async function doPollPendingSummaries(): Promise<void> {
   const supabase = createServiceClient();
 
   // SECURITY: service role reads only summary metadata, never document content.

@@ -39,6 +39,7 @@ export interface StreamLegalResponseResult {
   stream: AsyncIterable<MessageStreamEvent>;
   inputTokens: number;
   model: string;
+  abort: () => void;
   getUsage: () => Promise<{ inputTokens: number; outputTokens: number }>;
 }
 
@@ -170,6 +171,7 @@ export async function streamLegalResponse(
     stream: streamWithCostLogging(),
     inputTokens,
     model,
+    abort: () => sdkStream.abort(),
     getUsage: async () => {
       const finalMessage = await finalMessagePromise;
       return {
