@@ -545,3 +545,16 @@ curl -N -H "Authorization: Bearer YOUR_JWT" \
 - Route guard: `frontend/src/middleware.ts` protects `/chat` and redirects unauthenticated users to `/login`
 - Live SSE endpoint: not yet confirmed against Railway with a real Supabase JWT in this local session
 - Next task: Day 5 document processing backend integration and live E2E checks -- see `ROADMAP.md` Day 5 tasks
+
+### After Day 5
+
+- Token optimization: `backend/src/lib/tokenBudget.ts` -- all thresholds and budgets live here.
+- Compression: `backend/src/services/compression.ts` -- Haiku sentence extraction pass for retrieved chunks.
+- Document summary: `backend/src/services/documentSummary.ts` -- Batch API submission and polling helpers.
+- Batch poller: `backend/src/jobs/summaryPoller.ts` -- runs inside the Express process every 30s.
+- Cache warmup: fires from `summaryPoller` after Batch API completion and pre-warms the static prompt + document summary cache blocks.
+- pgvector RPC: `match_document_chunks` in `supabase/migrations/006_document_chunk_search.sql` -- always scoped to `user_id` and `document_id`.
+- Cost logger: every completed AI stream logs `estimated_cost_usd`, cache read/write token metadata, query type, document-context flag, and compression savings.
+- LibreOffice: `backend/nixpacks.toml` and `backend/Dockerfile` both exist in `backend/`; Nixpacks should be tried first.
+- Migration status: `supabase/migrations/005_document_summary.sql` and `006_document_chunk_search.sql` exist, but `supabase db push` was not applied locally because the checkout is not linked to a Supabase project ref.
+- Live E2E status: Railway health, PDF upload, summary completion, SSE document question, cache-hit logs, and rate-limit exhaustion still need a real JWT and deployed environment verification.

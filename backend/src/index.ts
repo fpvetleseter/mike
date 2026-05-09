@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { execSync } from "node:child_process";
 import express from "express";
 import type { NextFunction, Request, Response } from "express";
 import cors from "cors";
@@ -7,6 +8,7 @@ import { createServerSupabase } from "./lib/supabase";
 import documentsRouter from "./routes/documents";
 import aiRouter from "./routes/ai";
 import conversationsRouter from "./routes/conversations";
+import { startSummaryPoller } from "./jobs/summaryPoller";
 
 const app = express();
 const PORT = process.env.PORT ?? 3001;
@@ -64,4 +66,11 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 
 app.listen(PORT, () => {
   console.log(`Juridisk backend running on port ${PORT}`);
+  try {
+    execSync("libreoffice --version", { stdio: "pipe" });
+    console.log("[startup] LibreOffice: available");
+  } catch {
+    console.warn("[startup] LibreOffice: NOT available -- DOCX conversion will fail");
+  }
+  startSummaryPoller(30000);
 });

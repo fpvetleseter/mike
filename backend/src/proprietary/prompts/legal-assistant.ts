@@ -1,6 +1,6 @@
 export const LEGAL_ASSISTANT_PROMPT_VERSION = "1.0.0";
 
-const LEGAL_ASSISTANT_PROMPT = `Du er en juridisk assistent spesialisert på norsk rett og EØS-rett slik den gjelder i Norge.
+export const LEGAL_ASSISTANT_PROMPT = `Du er en juridisk assistent spesialisert på norsk rett og EØS-rett slik den gjelder i Norge.
 Du hjelper norske gründere, oppstartsbedrifter og SMB-er med å forstå juridiske spørsmål
 knyttet til drift av et norsk aksjeselskap.
 

@@ -4,11 +4,7 @@ import { NextFunction, Request, Response, Router } from "express";
 import multer from "multer";
 import { authMiddleware } from "../middleware/auth";
 import { createServerSupabase } from "../lib/supabase";
-import {
-  deleteDocumentObject,
-  processDocument,
-  ValidationError,
-} from "../services/documents";
+import { deleteDocumentObject, processDocument } from "../services/documents";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -64,37 +60,7 @@ documentsRouter.post(
       return;
     }
 
-    void processDocument({ file: req.file, userId, documentId })
-      .then(async (result) => {
-        await supabase
-          .from("documents")
-          .update({
-            status: "ready",
-            page_count: result.pageCount,
-            extracted_text_preview: result.extractedTextPreview,
-            r2_key: result.r2Key,
-          })
-          .eq("id", documentId)
-          .eq("user_id", userId);
-      })
-      .catch(async (backgroundError: unknown) => {
-        const message =
-          backgroundError instanceof ValidationError
-            ? backgroundError.message
-            : "Dokumentet kunne ikke behandles. Prøv igjen.";
-        console.error("Document processing failed", {
-          error:
-            backgroundError instanceof Error
-              ? backgroundError.message
-              : String(backgroundError),
-          documentId,
-        });
-        await supabase
-          .from("documents")
-          .update({ status: "error", error_message: message })
-          .eq("id", documentId)
-          .eq("user_id", userId);
-      });
+    void processDocument(req.file, userId, documentId);
 
     res.status(202).json({
       data: { documentId, status: "processing" },

@@ -4,7 +4,7 @@
 
 **Last updated:** 2026-05-09
 **Phase:** 1 -- MVP
-**Day completed:** 4 (frontend chat UI implemented locally; live checks pending)
+**Day completed:** 5 (document pipeline and token optimization implemented locally; live checks pending)
 
 ### What is live
 - Supabase: eu-west-1, pgvector enabled, Phase 1 tables migrated with RLS per Day 1/2 notes
@@ -31,6 +31,18 @@ Frontend chat UI is implemented locally. Auth guard works through Next.js middle
 Supabase session checks before rendering `/chat`. SSE streaming is wired to the Railway backend URL.
 Citation display, disclaimer footer, conversation sidebar, and document upload are implemented.
 Day 5 document processing backend integration and live E2E verification are next.
+
+### Current Build State (after Day 5)
+Full document processing pipeline is implemented locally. LibreOffice DOCX conversion, PDF extraction,
+chunking, embeddings, and pgvector upsert are implemented. Token optimization stack:
+prompt caching with 1-hour TTL on system prompt + document summary (dual cache breakpoints),
+Batch API for Haiku summarization, sentence-level chunk compression, query-type classification
+for output token budgeting, relevance threshold filtering on both Lovdata and document chunks,
+conversation history trimmer, summary poller cache warmup, and cost logger metadata are in place.
+Day 6 (Stripe billing) is next.
+
+> Note: Live Railway/Supabase verification is still pending. `supabase db push` could not run in
+> this checkout because the Supabase CLI reported no linked project ref.
 
 **Format:** Phases, not time-boxes. Each phase has a definition of done. Phase 1 is broken into
 day-level tasks. Phases 2 and 3 are task-level but not day-level (scope will be clearer after
@@ -261,9 +273,9 @@ cited, streamed response. This is the product's core value. Everything else is i
 
 **Tasks:**
 
-- [ ] Install LibreOffice on Railway (add to Dockerfile or nixpacks config)
-      > Note: deferred to next session -- availability was not verified.
-- [DONE] Create `backend/src/services/documents.ts`:
+- [x] Install LibreOffice on Railway (add to Dockerfile or nixpacks config)
+      > Note: `backend/nixpacks.toml` and `backend/Dockerfile` exist; Railway startup log availability is not yet verified.
+- [x] Create `backend/src/services/documents.ts`:
       - `processDocument(file, userId, documentId)`:
         1. Validate MIME type and size
         2. Upload original to R2 at `{userId}/{documentId}/{filename}`
@@ -274,19 +286,20 @@ cited, streamed response. This is the product's core value. Everything else is i
         7. Upsert chunks to `document_chunks` via Supabase
         8. Update `documents.status` to `'ready'`
         9. On error: set status to `'error'`, log error metadata
-- [DONE] Create `backend/src/routes/documents.ts`:
+- [x] Create `backend/src/routes/documents.ts`:
       - `POST /api/v1/documents/upload` -- multer middleware, trigger processDocument async
       - `GET /api/v1/documents` -- list user's documents
       - `DELETE /api/v1/documents/:id` -- delete document, R2 object, and chunks
-- [DONE] Add document context to chat route: if `documentId` is in the request, retrieve relevant
+- [x] Add document context to chat route: if `documentId` is in the request, retrieve relevant
       chunks via pgvector similarity search and inject into `{{DOCUMENT_CONTEXT}}`
       > Note: Juridisk v1 document routes now live in `backend/src/routes/documents.ts`; the Mike-derived router is preserved inactive under `backend/src/core/routes/documents.ts`.
-- [DONE] Build document upload UI: drag-and-drop + file picker, progress indicator
+- [x] Build document upload UI: drag-and-drop + file picker, progress indicator
       > Note: Implemented in `frontend/src/components/documents/DocumentUpload.tsx`; live upload verification is pending credentials.
-- [DONE] Build document library sidebar: list with status badges, Supabase Realtime status updates
+- [x] Build document library sidebar: list with status badges, Supabase Realtime status updates
       > Note: Phase 1 uses 3-second polling through `GET /api/v1/documents`; Supabase Realtime is deferred to Phase 2.
 - [ ] Test: upload a PDF employment contract, ask "hva er oppsigelsestiden?", verify the
       response references the specific contract clauses
+      > Note: live E2E test deferred -- requires linked Supabase project, Railway deploy logs, and a valid Supabase JWT.
 
 **Deliverable:** Document upload, processing, and Q&A working end-to-end.
 

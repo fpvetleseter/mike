@@ -16,13 +16,13 @@
 | Legal Assistant Agent | Implemented locally; runtime verification pending | System prompt v1.0.0 lives in `backend/src/proprietary/prompts/legal-assistant.ts`; `/api/v1/ai/chat` streams SSE |
 | Document Analysis Agent | Not started | Phase 2 -- two-pass Haiku + Sonnet pipeline |
 | Drafting Agent | Not started | Phase 2 |
-| Lovdata Retrieval Service | Implemented locally; runtime verification pending | Queries `law_chunks` via pgvector RPC using cosine similarity |
-| Document Context Extraction | Implemented locally; runtime verification pending | Queries `document_chunks`, top-5 chunks by similarity, scoped to `user_id` and `document_id` |
+| Lovdata Retrieval Service | Implemented locally; runtime verification pending | Queries `law_chunks` via pgvector RPC using cosine similarity; drops results below 0.70 before injection |
+| Document Context Extraction | Implemented and build-verified locally | Queries `document_chunks` through `match_document_chunks`, scoped to `user_id` and `document_id`; Haiku compression and summary cache are implemented |
 | Rate Limit Middleware | Implemented locally | 10 queries/day free tier, enforced server-side before AI route; Oslo exact reset still needs runtime review |
 
 **Prompt versions in production:**
 - legal-assistant: 1.0.0
-- document-summary: not deployed
+- document-summary: 1.0.0
 - document-risk: not deployed
 
 Juridisk uses three specialized agents. They do not run concurrently -- they are invoked
@@ -90,6 +90,10 @@ async function searchLovdata(
 - On cache miss: call Lovdata Pro API, cache result, return
 - On Lovdata API error: return empty array, set `lovdataAvailable: false` flag in context
 
+**Day 5 token optimization:**
+- Results below `TOKEN_BUDGET.MIN_LOVDATA_RELEVANCE_SCORE` (`0.70`) are dropped before prompt injection.
+- Overlapping sections with more than 60% word overlap are deduplicated in `backend/src/services/anthropic.ts`.
+
 **What is never stored:**
 - Full Lovdata law text is never persisted to PostgreSQL
 - Only citation metadata (lawName, section, url) is stored in the `messages.citations` JSONB column
@@ -99,14 +103,15 @@ async function searchLovdata(
 When a user asks a question about an uploaded document, the document text is retrieved from R2
 and injected into the agent context. The full pipeline is in `backend/src/services/documents.ts`.
 
-**Chunking strategy:**
-- Documents under 8,000 tokens: inject full text
-- Documents over 8,000 tokens: use semantic chunking via pgvector similarity search
-  - Embed the user's question with `text-embedding-3-small`
-  - Query `document_chunks` table for top-k most relevant chunks (k=5 by default)
-  - Inject retrieved chunks in document order (sorted by chunk_index)
-- Chunk size: 800 tokens, 100-token overlap
-- Chunk metadata: document_id, chunk_index, page_number (if extractable)
+**Chunking and injection strategy:**
+- Upload preprocessing chunks all documents into 800-token chunks with 100-token overlap.
+- Every upload submits a Haiku Batch API summary job; `documents.summary_text` is cached as prompt breakpoint 2.
+- For chat with `documentId`, the route embeds the user's question with `text-embedding-3-small`.
+- The route calls `match_document_chunks` scoped to `document_id` and `user_id`.
+- Results below `TOKEN_BUDGET.MIN_CHUNK_RELEVANCE_SCORE` (`0.72`) are excluded by the RPC threshold.
+- `classifyQuery()` determines injected chunk count: clause = 1, general = 2, risk = 3.
+- Retrieved chunks are compressed through Haiku sentence extraction before prompt injection.
+- Dynamic chunks are not cached; only the static legal prompt and stable document summary are cached.
 
 **Document preprocessing pipeline (on upload):**
 1. Receive file (PDF or DOCX) at `POST /api/v1/documents/upload`

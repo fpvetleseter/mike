@@ -1,18 +1,23 @@
+import type { MessageStreamEvent } from "@anthropic-ai/sdk/resources/messages";
 import { Router } from "express";
 import { z } from "zod";
+import { createServerSupabase } from "../lib/supabase";
+import {
+  TOKEN_BUDGET,
+  chunkCountForQuery,
+  classifyQuery,
+} from "../lib/tokenBudget";
 import { authMiddleware } from "../middleware/auth";
 import { checkQueryLimit, incrementQueryCount } from "../middleware/ratelimit";
 import { validateBody } from "../middleware/validate";
-import { createServerSupabase } from "../lib/supabase";
 import { streamLegalResponse } from "../services/anthropic";
 import { searchDocumentChunks } from "../services/documents";
-import { LovdataChunk, searchLovdata } from "../services/lovdata";
-import { buildLegalAssistantPrompt } from "../proprietary/prompts/legal-assistant";
+import { searchLovdata } from "../services/lovdata";
 
 const ChatRequestSchema = z.object({
   message: z.string().min(1).max(4000),
-  conversationId: z.string().uuid(),
-  documentId: z.string().uuid().optional(),
+  conversationId: z.string().uuid().nullable().optional(),
+  documentId: z.string().uuid().nullable().optional(),
 });
 
 type ChatRequestBody = z.infer<typeof ChatRequestSchema>;
@@ -45,25 +50,14 @@ aiRouter.post(
       return;
     }
 
-    const { message, conversationId, documentId } = req.body as ChatRequestBody;
+    const { message, documentId } = req.body as ChatRequestBody;
+    let conversationId = req.body.conversationId ?? null;
     const supabase = createServerSupabase();
     let headersFlushed = false;
 
     try {
-      // SECURITY: confirm conversation ownership because service role bypasses RLS.
-      const { data: conversation, error: conversationError } = await supabase
-        .from("conversations")
-        .select("id, document_id")
-        .eq("id", conversationId)
-        .eq("user_id", userId)
-        .single();
-
-      if (conversationError || !conversation) {
-        res.status(404).json({ data: null, error: "Samtalen ble ikke funnet." });
-        return;
-      }
-
       if (documentId) {
+        // SECURITY: document context must belong to the authenticated user.
         const { data: document, error: documentError } = await supabase
           .from("documents")
           .select("id")
@@ -76,6 +70,39 @@ aiRouter.post(
         }
       }
 
+      if (conversationId) {
+        // SECURITY: service role bypasses RLS, so app-level ownership is explicit.
+        const { data: conversation, error: conversationError } = await supabase
+          .from("conversations")
+          .select("id")
+          .eq("id", conversationId)
+          .eq("user_id", userId)
+          .single();
+
+        if (conversationError || !conversation) {
+          res.status(404).json({ data: null, error: "Samtalen ble ikke funnet." });
+          return;
+        }
+      } else {
+        // SECURITY: conversation user_id comes from JWT only.
+        const { data: createdConversation, error: createConversationError } =
+          await supabase
+            .from("conversations")
+            .insert({
+              user_id: userId,
+              document_id: documentId ?? null,
+              title: message.slice(0, 80),
+            })
+            .select("id")
+            .single();
+
+        if (createConversationError || !createdConversation) {
+          res.status(500).json({ data: null, error: "Kunne ikke opprette samtalen." });
+          return;
+        }
+        conversationId = createdConversation.id;
+      }
+
       // SECURITY: message is stored against authenticated user's conversation only.
       const { error: userMessageError } = await supabase.from("messages").insert({
         conversation_id: conversationId,
@@ -84,31 +111,47 @@ aiRouter.post(
         content: message,
       });
 
-      if (userMessageError) {
-        throw userMessageError;
-      }
+      if (userMessageError) throw userMessageError;
 
-      const history = await loadConversationHistory(conversationId, userId);
-      const lovdataPromise = searchLovdata(message, { maxResults: 5 });
-      const documentChunksPromise = documentId
-        ? searchDocumentChunks(message, documentId, userId).catch((error: unknown) => {
-            console.error("Document chunk retrieval failed", {
+      const queryType = classifyQuery(message);
+      const lovdataPromise = searchLovdata(message, {
+        maxResults: TOKEN_BUDGET.MAX_LOVDATA_RESULTS,
+        threshold: TOKEN_BUDGET.MIN_LOVDATA_RELEVANCE_SCORE,
+      });
+      const documentContextPromise = documentId
+        ? Promise.all([
+            searchDocumentChunks(message, documentId, userId, {
+              matchThreshold: TOKEN_BUDGET.MIN_CHUNK_RELEVANCE_SCORE,
+              matchCount: chunkCountForQuery(queryType),
+            }),
+            loadDocumentSummaryText(documentId, userId),
+          ]).catch((error: unknown) => {
+            console.error("Document context retrieval failed", {
               error: error instanceof Error ? error.message : String(error),
               documentId,
             });
-            return [];
+            return [[], null] as const;
           })
-        : Promise.resolve([]);
+        : Promise.resolve([[], null] as const);
 
-      const [lovdata, documentChunks] = await Promise.all([
-        lovdataPromise,
-        documentChunksPromise,
-      ]);
+      const historyPromise = loadConversationHistory(conversationId, userId, message);
+      const [lovdata, [documentChunks, documentSummaryText], history] =
+        await Promise.all([lovdataPromise, documentContextPromise, historyPromise]);
 
-      const systemPrompt = buildLegalAssistantPrompt({
-        lovdataContext: formatLovdataContext(lovdata.results, lovdata.available),
-        documentContext: formatDocumentContext(documentChunks),
-        conversationHistory: formatConversationHistory(history),
+      const lovdataResults = lovdata.results.filter(
+        (result) => result.similarity >= TOKEN_BUDGET.MIN_LOVDATA_RELEVANCE_SCORE,
+      );
+
+      const { stream, getUsage, model } = await streamLegalResponse({
+        userMessage: message,
+        conversationHistory: history,
+        documentSummaryText: documentSummaryText ?? undefined,
+        documentChunks: documentChunks.map((chunk) => ({
+          content: chunk.content,
+          chunk_index: chunk.chunkIndex,
+        })),
+        lovdataResults,
+        userId,
       });
 
       res.setHeader("Content-Type", "text/event-stream");
@@ -118,19 +161,14 @@ aiRouter.post(
       res.flushHeaders();
       headersFlushed = true;
 
-      const model = process.env.ANTHROPIC_MODEL ?? "claude-opus-4-7";
-      const { stream, getUsage } = await streamLegalResponse({
-        systemPrompt,
-        messages: history,
-        model,
-        maxTokens: 2048,
-        conversationId,
-      });
-
       let fullContent = "";
-      for await (const chunk of stream) {
-        fullContent += chunk;
-        res.write(`data: ${JSON.stringify({ type: "delta", content: chunk })}\n\n`);
+      for await (const event of stream) {
+        const text = extractTextDelta(event);
+        if (!text) continue;
+        fullContent += text;
+        res.write(
+          `data: ${JSON.stringify({ type: "delta", text, content: text })}\n\n`,
+        );
       }
 
       const enforced = enforceDisclaimer(fullContent);
@@ -138,7 +176,11 @@ aiRouter.post(
         const appended = enforced.slice(fullContent.length);
         fullContent = enforced;
         res.write(
-          `data: ${JSON.stringify({ type: "delta", content: appended })}\n\n`,
+          `data: ${JSON.stringify({
+            type: "delta",
+            text: appended,
+            content: appended,
+          })}\n\n`,
         );
       }
 
@@ -146,23 +188,33 @@ aiRouter.post(
       const citations = extractCitations(fullContent);
 
       // SECURITY: assistant content is persisted only to the authenticated user's conversation.
-      const { error: assistantMessageError } = await supabase.from("messages").insert({
-        conversation_id: conversationId,
-        user_id: userId,
-        role: "assistant",
-        content: fullContent,
-        citations,
-        model,
-        input_tokens: usage.inputTokens,
-        output_tokens: usage.outputTokens,
-      });
+      const { data: assistantMessage, error: assistantMessageError } = await supabase
+        .from("messages")
+        .insert({
+          conversation_id: conversationId,
+          user_id: userId,
+          role: "assistant",
+          content: fullContent,
+          citations,
+          model,
+          input_tokens: usage.inputTokens,
+          output_tokens: usage.outputTokens,
+        })
+        .select(
+          "id, conversation_id, role, content, citations, model, input_tokens, output_tokens, created_at",
+        )
+        .single();
 
-      if (assistantMessageError) {
-        throw assistantMessageError;
-      }
+      if (assistantMessageError || !assistantMessage) throw assistantMessageError;
 
       await incrementQueryCount(userId);
-      res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
+      res.write(
+        `data: ${JSON.stringify({
+          type: "done",
+          message: assistantMessage,
+          conversationId,
+        })}\n\n`,
+      );
       res.end();
     } catch (error) {
       console.error("AI chat failed", {
@@ -189,6 +241,7 @@ aiRouter.post(
 async function loadConversationHistory(
   conversationId: string,
   userId: string,
+  currentMessage: string,
 ): Promise<ChatMessage[]> {
   const supabase = createServerSupabase();
   // SECURITY: history retrieval is explicitly scoped to the authenticated user.
@@ -198,66 +251,56 @@ async function loadConversationHistory(
     .eq("conversation_id", conversationId)
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
-    .limit(10);
+    .limit(20);
 
-  if (error) {
-    throw error;
-  }
+  if (error) throw error;
 
   const ordered = ((data ?? []) as Array<{ role: string; content: string }>).reverse();
-  const truncated: ChatMessage[] = [];
-  let tokenEstimate = 0;
-  for (const message of ordered) {
-    if (message.role !== "user" && message.role !== "assistant") continue;
-    const nextEstimate = Math.ceil(message.content.length / 4);
-    if (tokenEstimate + nextEstimate > 4000) break;
-    tokenEstimate += nextEstimate;
-    truncated.push({ role: message.role, content: message.content });
-  }
-  return truncated;
-}
-
-function formatLovdataContext(results: LovdataChunk[], available: boolean): string {
-  if (!available) {
-    return "Lovdata-tilkobling er midlertidig utilgjengelig.";
-  }
-  if (results.length === 0) {
-    return "Ingen Lovdata-resultater tilgjengelig for dette spørsmålet.";
-  }
-  return results
-    .map(
-      (result) =>
-        `### ${result.lawName} ${result.section} — ${result.sectionTitle}\n${result.text}\nKilde: ${result.url}`,
+  const history = ordered
+    .filter(
+      (storedMessage, index) =>
+        !(
+          index === ordered.length - 1 &&
+          storedMessage.role === "user" &&
+          storedMessage.content === currentMessage
+        ),
     )
-    .join("\n\n");
+    .filter(
+      (storedMessage): storedMessage is ChatMessage =>
+        storedMessage.role === "user" || storedMessage.role === "assistant",
+    );
+
+  return history;
 }
 
-function formatDocumentContext(
-  chunks: Array<{ text: string; chunkIndex: number }> | null,
-): string {
-  if (!chunks || chunks.length === 0) {
-    return "Ingen dokumentkontekst. Brukeren stiller et generelt spørsmål.";
-  }
-  return `### Dokumentinnhold (utdrag)\n${chunks
-    .map((chunk) => `[Utdrag ${chunk.chunkIndex + 1}]\n${chunk.text}`)
-    .join("\n---\n")}`;
+async function loadDocumentSummaryText(
+  documentId: string,
+  userId: string,
+): Promise<string | null> {
+  const supabase = createServerSupabase();
+  // SECURITY: summary metadata is scoped to authenticated user and document.
+  const { data, error } = await supabase
+    .from("documents")
+    .select("summary_text")
+    .eq("id", documentId)
+    .eq("user_id", userId)
+    .single();
+
+  if (error || !data) return null;
+  return typeof data.summary_text === "string" ? data.summary_text : null;
 }
 
-function formatConversationHistory(messages: ChatMessage[]): string {
-  if (messages.length === 0) {
-    return "Ingen tidligere meldinger.";
-  }
-  return messages
-    .map((message) => {
-      const label = message.role === "user" ? "Bruker" : "Assistent";
-      return `${label}: ${message.content}`;
-    })
-    .join("\n");
+function extractTextDelta(event: MessageStreamEvent): string {
+  if (event.type !== "content_block_delta") return "";
+  const delta = event.delta;
+  if (delta.type !== "text_delta") return "";
+  return delta.text;
 }
 
 function extractCitations(text: string): Citation[] {
   const urlRegex = /https:\/\/lovdata\.no\/[^\s)]+/g;
-  const citationRegex = /([A-ZÆØÅ][A-Za-zÆØÅæøå\s-]+?)\s+§\s*([\dA-Za-zÆØÅæøå-]+)/g;
+  const citationRegex =
+    /([A-ZÆØÅ][A-Za-zÆØÅæøå\s-]+?)\s+§\s*([\dA-Za-zÆØÅæøå-]+)/g;
   const urls = text.match(urlRegex) ?? [];
   const citations = new Map<string, Citation>();
 
@@ -277,9 +320,7 @@ function extractCitations(text: string): Citation[] {
 }
 
 function enforceDisclaimer(content: string): string {
-  if (content.includes("ikke juridisk rådgivning")) {
-    return content;
-  }
+  if (content.includes("ikke juridisk rådgivning")) return content;
   return `${content}\n\n---\n${DISCLAIMER_NB}`;
 }
 

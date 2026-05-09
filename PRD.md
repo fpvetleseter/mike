@@ -210,23 +210,23 @@ answer in the same conversation, so that I can have a real back-and-forth legal 
 - Session persistence (30-day refresh token)
 
 ### Chat Interface
-**Status: Backend implemented locally (Day 3). Runtime and frontend verification pending.**
+**Status: Backend and frontend implemented locally through Day 5. Live E2E verification pending.**
 
 - Free-form legal Q&A (no document required)
 - Streaming AI responses (SSE from `/api/v1/ai/chat`)
-- Lovdata citations extracted and stored; display logic pending frontend
+- Lovdata citations extracted, stored, and displayed in the chat UI
 - Disclaimer appended to every response by backend post-processing
-- Conversation history routes exist; sidebar UI pending
+- Conversation history routes and sidebar UI exist
 - New conversation button
 
 ### Document Management
-**Status: Backend implemented locally (Day 3). Runtime and frontend verification pending.**
+**Status: Backend and frontend implemented locally through Day 5. Live E2E verification pending.**
 
 - Upload PDF or DOCX (up to 10MB)
-- Processing status display (Supabase Realtime not wired; polling fallback acceptable for Day 4)
+- Processing status display via 3-second polling in Phase 1
 - Document library sidebar
 - Ask questions about a specific document
-- Document-grounded responses via `document_chunks` similarity search if `documentId` is present
+- Document-grounded responses via `document_chunks` similarity search, Haiku chunk compression, and cached `summary_text` if `documentId` is present
 
 ### Rate Limiting and Billing
 **Status: Rate limiting middleware exists. Stripe billing not started (Day 6).**
@@ -293,11 +293,12 @@ in v1 unless specified:
 | Metric | Target |
 |---|---|
 | Time to first meaningful answer (new user) | Under 60 seconds from signup |
-| Document processing time (median, 10-page PDF) | Under 45 seconds |
+| Document processing time (median, 10-page PDF) | Under 45 seconds (pipeline implemented, measure in live E2E test) |
 | Citation accuracy (manual spot-check, 20 queries) | Lovdata URL resolves and is relevant in 90%+ of cases |
 | Streaming response initiation latency | Under 2 seconds from query submission (frontend wired, measure in Day 5 E2E test) |
 | Mobile usability (manual test, iPhone SE + Android mid-range) | No broken layouts, all core flows completable (implemented in Day 4, manual test pending) |
 | Zero critical security issues | No exposed secrets, RLS working on all tables |
+| AI cost target | < $0.01 per query with full optimization stack |
 
 ### Post-Launch (first 30 days)
 
