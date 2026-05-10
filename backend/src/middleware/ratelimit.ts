@@ -14,13 +14,22 @@ export async function checkQueryLimit(
   const userId = res.locals.userId as string;
   const db = createServerSupabase();
 
+  console.log("[ratelimit] fetching profile for user:", userId);
   const { data: profile, error } = await db
     .from("profiles")
     .select("tier, queries_today, queries_reset_at")
     .eq("id", userId)
     .single();
+  console.log("[ratelimit] profile result:", { profile, profileError: error });
 
   if (error || !profile) {
+    console.error("[ratelimit] profile fetch failed:", {
+      userId,
+      code: error?.code,
+      message: error?.message,
+      details: error?.details,
+      hint: error?.hint,
+    });
     res.status(500).json({
       data: null,
       error: "Kunne ikke hente brukerprofil.",

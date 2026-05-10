@@ -42,13 +42,20 @@ billingRouter.post("/checkout", authMiddleware, async (req, res) => {
 
     const supabase = createServerSupabase();
     // SECURITY: billing profile lookup is scoped to the authenticated JWT user only.
+    console.log("[billing/checkout] fetching profile for user:", userId);
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("id, email, stripe_customer_id")
       .eq("id", userId)
       .single();
+    console.log("[billing/checkout] profile result:", { profile, profileError });
 
     if (profileError || !profile) {
+      console.error("[billing/checkout] profile fetch failed:", {
+        userId,
+        code: profileError?.code,
+        message: profileError?.message,
+      });
       res
         .status(500)
         .json({ data: null, error: "Kunne ikke hente brukerprofil." });
@@ -116,13 +123,20 @@ billingRouter.post("/portal", authMiddleware, async (req, res) => {
 
     const supabase = createServerSupabase();
     // SECURITY: portal access is only created for the authenticated user's stored Stripe customer.
+    console.log("[billing/portal] fetching profile for user:", userId);
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("stripe_customer_id")
       .eq("id", userId)
       .single();
+    console.log("[billing/portal] profile result:", { profile, profileError });
 
     if (profileError || !profile) {
+      console.error("[billing/portal] profile fetch failed:", {
+        userId,
+        code: profileError?.code,
+        message: profileError?.message,
+      });
       res
         .status(500)
         .json({ data: null, error: "Kunne ikke hente brukerprofil." });
