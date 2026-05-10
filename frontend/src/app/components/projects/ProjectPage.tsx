@@ -63,6 +63,7 @@ import { UploadNewVersionModal } from "@/app/components/shared/UploadNewVersionM
 import { DocViewModal } from "@/app/components/shared/DocViewModal";
 import { AddNewTRModal } from "@/app/components/tabular/AddNewTRModal";
 import { useChatHistoryContext } from "@/app/contexts/ChatHistoryContext";
+import { safeFormatDate } from "@/lib/utils";
 
 interface Props {
     projectId: string;
@@ -87,11 +88,7 @@ function formatBytes(bytes: number): string {
 }
 
 function formatDate(iso: string) {
-    return new Date(iso).toLocaleDateString(undefined, {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-    });
+    return safeFormatDate(iso);
 }
 
 function DocIcon({ fileType }: { fileType: string | null }) {
@@ -183,16 +180,7 @@ function DocVersionHistory({
                           ? "Original"
                           : "—";
                 const displayLabel = v.display_name?.trim() || numberLabel;
-                const dt = new Date(v.created_at);
-                const dateLabel = Number.isNaN(dt.valueOf())
-                    ? ""
-                    : dt.toLocaleString(undefined, {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                          hour: "numeric",
-                          minute: "2-digit",
-                      });
+                const dateLabel = safeFormatDate(v.created_at);
                 const isEditing = editingVersionId === v.id;
                 return (
                     <div

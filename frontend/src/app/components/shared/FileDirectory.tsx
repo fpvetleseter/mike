@@ -12,14 +12,10 @@ import {
 } from "lucide-react";
 import type { MikeDocument, MikeProject } from "./types";
 import { VersionChip } from "./VersionChip";
+import { safeFormatDate } from "@/lib/utils";
 
 function formatDate(iso: string | null) {
-    if (!iso) return null;
-    return new Date(iso).toLocaleDateString(undefined, {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-    });
+    return safeFormatDate(iso);
 }
 
 export function DocFileIcon({ fileType }: { fileType: string | null }) {

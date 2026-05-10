@@ -11,13 +11,10 @@ import type { MikeProject } from "@/app/components/shared/types";
 import { NewProjectModal } from "./NewProjectModal";
 import { ToolbarTabs } from "@/app/components/shared/ToolbarTabs";
 import { RowActions } from "@/app/components/shared/RowActions";
+import { safeFormatDate } from "@/lib/utils";
 
 function formatDate(iso: string) {
-    return new Date(iso).toLocaleDateString(undefined, {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-    });
+    return safeFormatDate(iso);
 }
 
 type Tab = "all" | "mine" | "shared-with-me";

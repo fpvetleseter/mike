@@ -4,7 +4,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import CitationCard from "@/components/chat/CitationCard";
 import { nb } from "@/lib/nb";
-import { cn } from "@/lib/utils";
+import { cn, safeFormatDate } from "@/lib/utils";
 import type { Message } from "@/types/api";
 
 interface MessageBubbleProps {
@@ -13,12 +13,7 @@ interface MessageBubbleProps {
 }
 
 function formatTimestamp(value: string): string {
-    return new Intl.DateTimeFormat("nb-NO", {
-        hour: "2-digit",
-        minute: "2-digit",
-        day: "2-digit",
-        month: "2-digit",
-    }).format(new Date(value));
+    return safeFormatDate(value);
 }
 
 export default function MessageBubble({

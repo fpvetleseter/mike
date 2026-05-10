@@ -1,7 +1,7 @@
 "use client";
 
 import { nb } from "@/lib/nb";
-import { cn } from "@/lib/utils";
+import { cn, safeFormatDate } from "@/lib/utils";
 import type { Conversation } from "@/types/api";
 
 interface ConversationSidebarProps {
@@ -13,6 +13,9 @@ interface ConversationSidebarProps {
 }
 
 function formatDate(dateString: string): string {
+    const fallback = safeFormatDate(dateString);
+    if (!fallback) return "";
+
     const date = new Date(dateString);
     const today = new Date();
     const yesterday = new Date();
@@ -26,11 +29,7 @@ function formatDate(dateString: string): string {
         return "i går";
     }
 
-    return new Intl.DateTimeFormat("nb-NO", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-    }).format(date);
+    return fallback;
 }
 
 function truncateTitle(title: string | undefined): string {

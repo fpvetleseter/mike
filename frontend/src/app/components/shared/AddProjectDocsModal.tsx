@@ -7,6 +7,7 @@ import { getProject, uploadProjectDocument } from "@/app/lib/mikeApi";
 import type { MikeDocument } from "./types";
 import { DocFileIcon } from "./FileDirectory";
 import { VersionChip } from "./VersionChip";
+import { safeFormatDate } from "@/lib/utils";
 
 interface Props {
     open: boolean;
@@ -20,12 +21,7 @@ interface Props {
 }
 
 function formatDate(iso: string | null) {
-    if (!iso) return null;
-    return new Date(iso).toLocaleDateString(undefined, {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-    });
+    return safeFormatDate(iso);
 }
 
 export function AddProjectDocsModal({

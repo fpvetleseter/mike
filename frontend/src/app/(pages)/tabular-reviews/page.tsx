@@ -17,6 +17,7 @@ import { ToolbarTabs } from "@/app/components/shared/ToolbarTabs";
 import { AddNewTRModal } from "@/app/components/tabular/AddNewTRModal";
 import { OwnerOnlyModal } from "@/app/components/shared/OwnerOnlyModal";
 import { useAuth } from "@/contexts/AuthContext";
+import { safeFormatDate } from "@/lib/utils";
 
 type Tab = "all" | "in-project" | "standalone";
 
@@ -30,11 +31,7 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 
 function formatDate(iso: string) {
-    return new Date(iso).toLocaleDateString(undefined, {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-    });
+    return safeFormatDate(iso);
 }
 
 export default function TabularReviewsPage() {

@@ -11,7 +11,7 @@ import {
     SidebarHeader,
 } from "@/components/ui/sidebar";
 import { nb } from "@/lib/nb";
-import { cn } from "@/lib/utils";
+import { cn, safeFormatDate } from "@/lib/utils";
 import type { Conversation } from "@/types/api";
 
 interface JuridiskSidebarProps {
@@ -35,6 +35,9 @@ function getBarColor(queriesUsed: number): string {
 }
 
 function formatDate(dateString: string): string {
+    const fallback = safeFormatDate(dateString);
+    if (!fallback) return "";
+
     const date = new Date(dateString);
     const today = new Date();
     const yesterday = new Date();
@@ -43,11 +46,7 @@ function formatDate(dateString: string): string {
     if (date.toDateString() === today.toDateString()) return nb.chat.today;
     if (date.toDateString() === yesterday.toDateString()) return nb.chat.yesterday;
 
-    return new Intl.DateTimeFormat("nb-NO", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-    }).format(date);
+    return fallback;
 }
 
 function conversationTitle(conversation: Conversation): string {

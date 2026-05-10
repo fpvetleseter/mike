@@ -1,5 +1,6 @@
 import { X } from "lucide-react";
 import { createPortal } from "react-dom";
+import { safeFormatDate } from "@/lib/utils";
 
 interface CreditsExhaustedModalProps {
     isOpen: boolean;
@@ -14,14 +15,8 @@ export function CreditsExhaustedModal({
 }: CreditsExhaustedModalProps) {
     if (!isOpen) return null;
 
-    // Format the reset date
     const formatResetDate = (dateString: string) => {
-        const date = new Date(dateString);
-        return date.toLocaleDateString("en-US", {
-            month: "long",
-            day: "numeric",
-            year: "numeric",
-        });
+        return safeFormatDate(dateString);
     };
 
     return createPortal(

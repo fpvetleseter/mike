@@ -5,6 +5,13 @@ export function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
 }
 
+export function safeFormatDate(value: string | null | undefined): string {
+    if (!value) return "";
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return "";
+    return d.toLocaleDateString("nb-NO");
+}
+
 /**
  * Calculates the Dice Coefficient between two strings.
  * Returns a value between 0 and 1, where 1 is an exact match.
