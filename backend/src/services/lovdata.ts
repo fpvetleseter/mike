@@ -61,7 +61,8 @@ export async function searchLovdata(
     };
   } catch (error) {
     console.error("Lovdata retrieval failed", {
-      error: error instanceof Error ? error.message : String(error),
+      error: error instanceof Error ? error.message : JSON.stringify(error),
+      stack: error instanceof Error ? error.stack : undefined,
     });
     return { results: [], available: false };
   }
