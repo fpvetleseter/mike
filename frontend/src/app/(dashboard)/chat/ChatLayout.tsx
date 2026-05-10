@@ -111,6 +111,11 @@ export default function ChatLayout({
     tier,
     queriesToday,
 }: ChatLayoutProps) {
+    console.log("[Juridisk] env check", {
+        backendUrl: process.env.NEXT_PUBLIC_BACKEND_URL,
+        hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+    });
+
     const router = useRouter();
     const [conversations, setConversations] =
         useState<Conversation[]>(initialConversations);
@@ -186,7 +191,15 @@ export default function ChatLayout({
             const response = await fetch(`${backendUrl}/api/v1/conversations`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
-            if (!response.ok) return;
+            if (!response.ok) {
+                console.error("[Juridisk] fetch error response:", {
+                    status: response.status,
+                    statusText: response.statusText,
+                    url: response.url,
+                    body: await response.text(),
+                });
+                return;
+            }
             const result = (await response.json()) as ApiResponse<Conversation[]>;
             setConversations(result.data ?? []);
         } finally {
@@ -203,7 +216,15 @@ export default function ChatLayout({
             const response = await fetch(`${backendUrl}/api/v1/documents`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
-            if (!response.ok) return;
+            if (!response.ok) {
+                console.error("[Juridisk] fetch error response:", {
+                    status: response.status,
+                    statusText: response.statusText,
+                    url: response.url,
+                    body: await response.text(),
+                });
+                return;
+            }
             const result = (await response.json()) as ApiResponse<Document[]>;
             setDocuments(result.data ?? []);
         } catch {
@@ -253,29 +274,45 @@ export default function ChatLayout({
         const token = await getAccessToken();
         if (!token) return null;
 
-        const response = await fetch(`${backendUrl}/api/v1/conversations`, {
-            method: "POST",
-            headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ title: null }),
-        });
+        try {
+            const response = await fetch(`${backendUrl}/api/v1/conversations`, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ title: null }),
+            });
 
-        if (!response.ok) {
+            if (!response.ok) {
+                console.error("[Juridisk] fetch error response:", {
+                    status: response.status,
+                    statusText: response.statusText,
+                    url: response.url,
+                    body: await response.text(),
+                });
+                showError(nb.errors.generic);
+                return null;
+            }
+
+            const result = (await response.json()) as ApiResponse<unknown>;
+            if (!isCreateConversationData(result.data)) {
+                showError(nb.errors.generic);
+                return null;
+            }
+
+            setActiveConversationId(result.data.id);
+            await fetchConversations();
+            return result.data.id;
+        } catch (error: unknown) {
+            console.error("[Juridisk] createConversation failed:", {
+                url: `${backendUrl}/api/v1/conversations`,
+                error: error instanceof Error ? error.message : error,
+                backendUrl,
+            });
             showError(nb.errors.generic);
             return null;
         }
-
-        const result = (await response.json()) as ApiResponse<unknown>;
-        if (!isCreateConversationData(result.data)) {
-            showError(nb.errors.generic);
-            return null;
-        }
-
-        setActiveConversationId(result.data.id);
-        await fetchConversations();
-        return result.data.id;
     }
 
     function handleNewConversation(): void {
@@ -303,6 +340,12 @@ export default function ChatLayout({
                 }
             );
             if (!response.ok) {
+                console.error("[Juridisk] fetch error response:", {
+                    status: response.status,
+                    statusText: response.statusText,
+                    url: response.url,
+                    body: await response.text(),
+                });
                 showError(nb.errors.conversationLoad);
                 return;
             }
@@ -353,12 +396,24 @@ export default function ChatLayout({
             });
 
             if (response.status === 413) {
+                console.error("[Juridisk] fetch error response:", {
+                    status: response.status,
+                    statusText: response.statusText,
+                    url: response.url,
+                    body: await response.text(),
+                });
                 showError(nb.errors.fileTooLarge);
                 setAttachedFileName(null);
                 return;
             }
 
             if (!response.ok) {
+                console.error("[Juridisk] fetch error response:", {
+                    status: response.status,
+                    statusText: response.statusText,
+                    url: response.url,
+                    body: await response.text(),
+                });
                 showError(nb.errors.generic);
                 setAttachedFileName(null);
                 return;
@@ -443,11 +498,25 @@ export default function ChatLayout({
             });
 
             if (response.status === 429) {
+                console.error("[Juridisk] fetch error response:", {
+                    status: response.status,
+                    statusText: response.statusText,
+                    url: response.url,
+                    body: await response.text(),
+                });
                 setRateLimited(true);
                 return;
             }
 
             if (!response.ok || !response.body) {
+                if (!response.ok) {
+                    console.error("[Juridisk] fetch error response:", {
+                        status: response.status,
+                        statusText: response.statusText,
+                        url: response.url,
+                        body: await response.text(),
+                    });
+                }
                 showError(nb.errors.generic);
                 return;
             }
@@ -533,6 +602,14 @@ export default function ChatLayout({
             ) {
                 return;
             }
+            console.error("[Juridisk] handleSend failed:", {
+                error:
+                    caughtError instanceof Error
+                        ? caughtError.message
+                        : caughtError,
+                conversationId,
+                backendUrl,
+            });
             showError(nb.errors.streamFailed);
         } finally {
             setIsStreaming(false);
@@ -565,6 +642,12 @@ export default function ChatLayout({
             });
 
             if (!response.ok) {
+                console.error("[Juridisk] fetch error response:", {
+                    status: response.status,
+                    statusText: response.statusText,
+                    url: response.url,
+                    body: await response.text(),
+                });
                 showError(nb.errors.generic);
                 return;
             }

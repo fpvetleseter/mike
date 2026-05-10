@@ -18,49 +18,58 @@ conversationsRouter.post(
   authMiddleware,
   validateBody(CreateConversationSchema),
   async (req, res) => {
-    const userId = req.user?.id;
-    if (!userId) {
-      res.status(401).json({ data: null, error: "Du må logge inn." });
-      return;
-    }
-
-    const { documentId, title } = req.body as CreateConversationBody;
-    const supabase = createServerSupabase();
-
-    if (documentId) {
-      // SECURITY: document association must belong to the authenticated user.
-      const { data: document, error: documentError } = await supabase
-        .from("documents")
-        .select("id")
-        .eq("id", documentId)
-        .eq("user_id", userId)
-        .single();
-      if (documentError || !document) {
-        res.status(404).json({ data: null, error: "Dokumentet ble ikke funnet." });
+    console.log("[conversations] POST called", { userId: req.user?.id });
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        res.status(401).json({ data: null, error: "Du må logge inn." });
         return;
       }
-    }
 
-    // SECURITY: user_id comes from validated JWT only.
-    const { data, error } = await supabase
-      .from("conversations")
-      .insert({
-        user_id: userId,
-        document_id: documentId ?? null,
-        title: title ?? null,
-      })
-      .select("id, created_at")
-      .single();
+      const { documentId, title } = req.body as CreateConversationBody;
+      const supabase = createServerSupabase();
 
-    if (error || !data) {
+      if (documentId) {
+        // SECURITY: document association must belong to the authenticated user.
+        const { data: document, error: documentError } = await supabase
+          .from("documents")
+          .select("id")
+          .eq("id", documentId)
+          .eq("user_id", userId)
+          .single();
+        if (documentError || !document) {
+          res.status(404).json({ data: null, error: "Dokumentet ble ikke funnet." });
+          return;
+        }
+      }
+
+      // SECURITY: user_id comes from validated JWT only.
+      const { data, error } = await supabase
+        .from("conversations")
+        .insert({
+          user_id: userId,
+          document_id: documentId ?? null,
+          title: title ?? null,
+        })
+        .select("id, created_at")
+        .single();
+
+      if (error || !data) {
+        res.status(500).json({ data: null, error: "Kunne ikke opprette samtalen." });
+        return;
+      }
+
+      const conversation = data;
+      console.log("[conversations] created", { id: conversation.id });
+
+      res.status(201).json({
+        data: { id: data.id, createdAt: data.created_at },
+        error: null,
+      });
+    } catch (error) {
+      console.error("[conversations] error", error);
       res.status(500).json({ data: null, error: "Kunne ikke opprette samtalen." });
-      return;
     }
-
-    res.status(201).json({
-      data: { id: data.id, createdAt: data.created_at },
-      error: null,
-    });
   },
 );
 

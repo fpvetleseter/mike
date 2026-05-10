@@ -44,6 +44,7 @@ aiRouter.post(
   checkQueryLimit,
   validateBody(ChatRequestSchema),
   async (req, res) => {
+    console.log("[ai/chat] POST called", { userId: req.user?.id });
     const userId = req.user?.id;
     if (!userId) {
       res.status(401).json({ data: null, error: "Du må logge inn." });
@@ -219,6 +220,7 @@ aiRouter.post(
       );
       res.end();
     } catch (error) {
+      console.error("[ai/chat] error", error);
       if (error instanceof Error && error.name === "APIUserAbortError") {
         // Client disconnected mid-stream; stream was already cancelled.
         return;
