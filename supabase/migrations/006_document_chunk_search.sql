@@ -1,3 +1,5 @@
+drop function if exists public.match_document_chunks;
+
 -- Token-optimized document chunk search for Day 5.
 -- SECURITY: result rows are always scoped by document_id and user_id.
 

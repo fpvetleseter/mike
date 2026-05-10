@@ -29,6 +29,18 @@ export const nb = {
         documents: "Dokumenter",
         noConversations: "Ingen samtaler ennå.",
         uploadPrompt: "Last opp et dokument for å stille spørsmål om det.",
+        upgradeToPro: "Oppgrader til Pro",
+    },
+    settings: {
+        account: "Konto",
+        title: "Innstillinger",
+        currentPlan: "Nåværende abonnement",
+        free: "Gratis",
+        pro: "Pro",
+        usageLabel: "Spørsmål brukt i dag:",
+        unlimited: "ubegrenset",
+        upgradePrice: "Oppgrader til Pro -- NOK 299/mnd",
+        manageSubscription: "Administrer abonnement",
     },
     upload: {
         drag: "Dra og slipp PDF eller Word-dokument her",

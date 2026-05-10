@@ -18,7 +18,7 @@ export default function LoginPage() {
 
     useEffect(() => {
         if (!authLoading && isAuthenticated) {
-            router.replace("/assistant");
+            router.replace("/chat");
         }
     }, [authLoading, isAuthenticated, router]);
 
@@ -35,7 +35,7 @@ export default function LoginPage() {
 
             if (error) throw error;
 
-            router.push("/assistant");
+            window.location.href = "/chat";
         } catch (error: any) {
             setError(error.message || "An error occurred during login");
         } finally {

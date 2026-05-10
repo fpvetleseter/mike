@@ -21,7 +21,7 @@ import { SidebarChatItem } from "@/app/components/shared/SidebarChatItem";
 import { listProjects } from "@/app/lib/mikeApi";
 
 const NAV_ITEMS = [
-    { href: "/assistant", label: "Assistant", icon: MessageSquare },
+    { href: "/chat", label: "Assistant", icon: MessageSquare },
     { href: "/projects", label: "Projects", icon: FolderOpen },
     { href: "/tabular-reviews", label: "Tabular Review", icon: Table2 },
     { href: "/workflows", label: "Workflows", icon: Library },
@@ -70,21 +70,21 @@ export function AppSidebar({ isOpen, onToggle }: AppSidebarProps) {
     }, [isDropdownOpen]);
 
     useEffect(() => {
-        if (pathname.startsWith("/assistant/chat/")) {
+        if (pathname.startsWith("/chat/chat/")) {
             const chatId = pathname.split("/").pop() ?? null;
             setCurrentChatId(chatId);
             return;
         }
 
         const projectChatMatch = pathname.match(
-            /^\/projects\/[^/]+\/assistant\/chat\/([^/]+)/,
+            /^\/projects\/[^/]+\/chat\/chat\/([^/]+)/,
         );
         if (projectChatMatch) {
             setCurrentChatId(projectChatMatch[1]);
             return;
         }
 
-        if (pathname === "/assistant") {
+        if (pathname === "/chat") {
             setCurrentChatId(null);
         }
     }, [pathname, setCurrentChatId]);
@@ -124,7 +124,7 @@ export function AppSidebar({ isOpen, onToggle }: AppSidebarProps) {
                 {isOpen && (
                     <div className="px-2.5">
                         <Link
-                            href="/assistant"
+                            href="/chat"
                             className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
                         >
                             <MikeIcon size={22} />
@@ -182,7 +182,7 @@ export function AppSidebar({ isOpen, onToggle }: AppSidebarProps) {
             })}
 
             {/* Assistant History */}
-            {isOpen && pathname.startsWith("/assistant") && (
+            {isOpen && pathname.startsWith("/chat") && (
                 <div className="mt-4 flex-1 min-h-0 flex flex-col">
                     <button
                         onClick={() => setHistoryCollapsed((v) => !v)}
@@ -240,8 +240,8 @@ export function AppSidebar({ isOpen, onToggle }: AppSidebarProps) {
                                             setCurrentChatId(chat.id);
                                             router.push(
                                                 chat.project_id
-                                                    ? `/projects/${chat.project_id}/assistant/chat/${chat.id}`
-                                                    : `/assistant/chat/${chat.id}`,
+                                                    ? `/projects/${chat.project_id}/chat/chat/${chat.id}`
+                                                    : `/chat/chat/${chat.id}`,
                                             );
                                         }}
                                     />

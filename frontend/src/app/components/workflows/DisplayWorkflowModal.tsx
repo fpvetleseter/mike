@@ -372,8 +372,8 @@ export function DisplayWorkflowModal({ workflows, workflow, onClose }: Props) {
             handleClose();
             router.push(
                 projectId
-                    ? `/projects/${projectId}/assistant/chat/${chatId}`
-                    : `/assistant/chat/${chatId}`,
+                    ? `/projects/${projectId}/chat/chat/${chatId}`
+                    : `/chat/chat/${chatId}`,
             );
         } finally {
             setSaving(false);

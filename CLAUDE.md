@@ -204,6 +204,7 @@ CLOUDFLARE_R2_BUCKET_NAME=juridisk-documents
 CLOUDFLARE_R2_ENDPOINT=https://<account>.r2.cloudflarestorage.com
 STRIPE_SECRET_KEY=sk_live_...
 STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_PRO_PRICE_ID=price_...
 SUPABASE_URL=https://your-project.supabase.co
 
 # Config
@@ -558,3 +559,28 @@ curl -N -H "Authorization: Bearer YOUR_JWT" \
 - LibreOffice: `backend/nixpacks.toml` and `backend/Dockerfile` both exist in `backend/`; Nixpacks should be tried first.
 - Migration status: `supabase/migrations/005_document_summary.sql` and `006_document_chunk_search.sql` exist, but `supabase db push` was not applied locally because the checkout is not linked to a Supabase project ref.
 - Live E2E status: Railway health, PDF upload, summary completion, SSE document question, cache-hit logs, and rate-limit exhaustion still need a real JWT and deployed environment verification.
+
+### After Day 6
+
+- Billing route: `backend/src/routes/billing.ts`
+  - `POST /api/v1/billing/checkout` is authenticated, creates or reuses a Stripe customer, stores `profiles.stripe_customer_id`, and returns `{ data: { url }, error: null }`.
+  - `POST /api/v1/billing/portal` is authenticated, requires an existing `profiles.stripe_customer_id`, and returns `{ data: { url }, error: null }`.
+- Stripe webhook route: `backend/src/routes/webhooks.ts`
+  - Mounted at `/api/v1/webhooks/stripe` before `express.json()` using `express.raw({ type: "application/json" })`.
+  - Verifies `stripe-signature` with `stripe.webhooks.constructEvent()` before any database write.
+  - Returns 200 after signature verification and processes entitlement updates asynchronously.
+  - `checkout.session.completed` sets `profiles.tier = 'pro'`; `customer.subscription.deleted` sets `profiles.tier = 'free'`.
+- Frontend settings page: `frontend/src/app/(dashboard)/settings/page.tsx`
+  - Server Component with Supabase auth guard.
+  - Shows `Gratis` / `Pro`, `Spørsmål brukt i dag:`, Checkout for free users, and Customer Portal for Pro users.
+  - Uses server actions to forward the Supabase JWT to the backend; no Stripe secret is exposed to frontend code.
+- Chat limit UI: `frontend/src/app/(dashboard)/chat/ChatLayout.tsx`
+  - A 429 response from `/api/v1/ai/chat` now shows an inline Norwegian upgrade prompt with a button to `/settings`.
+- Environment: `backend/.env.example` now includes `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and `STRIPE_PRO_PRICE_ID`.
+- Verification completed locally:
+  - `npm run build` in `backend/` passes.
+  - `npm run build` in `frontend/` passes.
+- Live E2E still pending:
+  - Stripe Checkout URL creation with live/test key.
+  - Stripe Customer Portal URL creation.
+  - Signed Stripe webhook delivery to Railway and observed `profiles.tier` updates.

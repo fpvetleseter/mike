@@ -19,6 +19,7 @@
 | Lovdata Retrieval Service | Implemented locally; runtime verification pending | Queries `law_chunks` via pgvector RPC using cosine similarity; drops results below 0.70 before injection |
 | Document Context Extraction | Implemented and build-verified locally | Queries `document_chunks` through `match_document_chunks`, scoped to `user_id` and `document_id`; Haiku compression and summary cache are implemented |
 | Rate Limit Middleware | Implemented locally | 10 queries/day free tier, enforced server-side before AI route; Oslo exact reset still needs runtime review |
+| Billing and Entitlement Service | Implemented and build-verified locally | Stripe Checkout, Customer Portal, and signed webhook entitlement updates live in `backend/src/routes/billing.ts` and `backend/src/routes/webhooks.ts`; live Stripe E2E pending |
 
 **Prompt versions in production:**
 - legal-assistant: 1.0.0
@@ -169,6 +170,40 @@ async function checkRateLimit(userId: string): Promise<RateLimitResult> {
 **Pro tier:**
 - Unlimited queries
 - Unlimited document uploads
+
+### 2.4 Billing and Entitlement Service
+
+**Locations:**
+- `backend/src/routes/billing.ts`
+- `backend/src/routes/webhooks.ts`
+
+**Checkout:**
+- `POST /api/v1/billing/checkout`
+- Auth middleware required; `req.user` must come from the Supabase JWT.
+- Creates or retrieves a Stripe customer for the authenticated user.
+- Stores `profiles.stripe_customer_id` when a customer is first created.
+- Creates a Stripe Checkout Session using `STRIPE_PRO_PRICE_ID`.
+- Returns `{ data: { url: string }, error: null }`.
+
+**Customer Portal:**
+- `POST /api/v1/billing/portal`
+- Auth middleware required.
+- Requires `profiles.stripe_customer_id`.
+- Creates a Stripe Customer Portal Session.
+- Returns `{ data: { url: string }, error: null }`.
+
+**Stripe webhook:**
+- Mounted at `POST /api/v1/webhooks/stripe`.
+- Uses `express.raw({ type: "application/json" })`, not `express.json()`.
+- Verifies `stripe-signature` with `stripe.webhooks.constructEvent()` before any database write.
+- Returns 200 immediately after signature verification, then processes the event asynchronously.
+- `checkout.session.completed` sets `profiles.tier = 'pro'`.
+- `customer.subscription.deleted` sets `profiles.tier = 'free'`.
+
+**Security rules:**
+- Stripe secret keys never appear in frontend code or `NEXT_PUBLIC_` variables.
+- Entitlement changes are keyed from verified Stripe customer ids.
+- User ids used by billing routes come from JWT auth, never from request bodies.
 
 ---
 

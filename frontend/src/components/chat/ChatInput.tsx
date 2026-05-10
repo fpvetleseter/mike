@@ -63,9 +63,6 @@ export default function ChatInput({
                     )}
                 </button>
             </div>
-            {disabled ? (
-                <p className="mt-2 text-sm text-amber-600">{nb.errors.rateLimit}</p>
-            ) : null}
         </div>
     );
 }

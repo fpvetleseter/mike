@@ -39,10 +39,10 @@ export default function AssistantChatPage() {
                 if (loaded.length > 0) {
                     setMessages(loaded);
                 } else {
-                    router.replace("/assistant");
+                    router.replace("/chat");
                 }
             })
-            .catch(() => router.replace("/assistant"));
+            .catch(() => router.replace("/chat"));
     }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import ChatInput from "@/components/chat/ChatInput";
 import MessageList from "@/components/chat/MessageList";
 import DocumentList from "@/components/documents/DocumentList";
@@ -78,6 +79,7 @@ async function getAccessToken(): Promise<string | null> {
 }
 
 export default function ChatLayout({ initialConversations }: ChatLayoutProps) {
+    const router = useRouter();
     const [conversations, setConversations] =
         useState<Conversation[]>(initialConversations);
     const [activeConversationId, setActiveConversationId] = useState<string | null>(
@@ -189,6 +191,7 @@ export default function ChatLayout({ initialConversations }: ChatLayoutProps) {
         if (id) {
             setMessages([]);
             setActiveDocumentId(null);
+            setRateLimited(false);
             setSidebarOpen(false);
         }
     }
@@ -248,6 +251,7 @@ export default function ChatLayout({ initialConversations }: ChatLayoutProps) {
         setMessages((previous) => [...previous, optimisticMessage]);
         setIsStreaming(true);
         setStreamingContent("");
+        setRateLimited(false);
         setError(null);
 
         const controller = new AbortController();
@@ -471,6 +475,22 @@ export default function ChatLayout({ initialConversations }: ChatLayoutProps) {
                         isStreaming={isStreaming}
                         disabled={rateLimited}
                     />
+                    {rateLimited ? (
+                        <div className="border-t border-amber-200 bg-amber-50 px-4 py-3">
+                            <div className="mx-auto flex max-w-4xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                <p className="text-sm font-medium text-amber-900">
+                                    {nb.errors.rateLimit}
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={() => router.push("/settings")}
+                                    className="min-h-10 rounded bg-slate-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2"
+                                >
+                                    {nb.chat.upgradeToPro}
+                                </button>
+                            </div>
+                        </div>
+                    ) : null}
                     <DisclaimerFooter />
                 </div>
             </div>

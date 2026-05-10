@@ -24,7 +24,7 @@ export default function SignupPage() {
 
     useEffect(() => {
         if (!authLoading && isAuthenticated && !success) {
-            router.replace("/assistant");
+            router.replace("/chat");
         }
     }, [authLoading, isAuthenticated, router, success]);
 
@@ -81,7 +81,7 @@ export default function SignupPage() {
             }
             setSuccess(true);
             setTimeout(() => {
-                router.push("/assistant");
+                window.location.href = "/chat";
             }, 2000);
         } catch (error: any) {
             setError(error.message || "An error occurred during signup");

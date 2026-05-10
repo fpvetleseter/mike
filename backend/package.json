@@ -7,7 +7,8 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "ingest:lovdata": "tsx src/scripts/ingest-lovdata.ts"
+    "ingest:lovdata": "tsx scripts/ingestLovdata.ts",
+    "ingest:lovdata:all": "tsx scripts/ingestLovdata.ts --all"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.90.0",

@@ -2,9 +2,9 @@
 
 ## Current Build State
 
-**Last updated:** 2026-05-09
+**Last updated:** 2026-05-10
 **Phase:** 1 -- MVP
-**Day completed:** 5 (document pipeline and token optimization implemented locally; live checks pending)
+**Day completed:** 6 (Stripe billing and rate-limit UI implemented and build-verified locally; live Stripe E2E pending)
 
 ### What is live
 - Supabase: eu-west-1, pgvector enabled, Phase 1 tables migrated with RLS per Day 1/2 notes
@@ -18,13 +18,15 @@
 - `POST /api/v1/conversations` and GET variants -- conversation management
 - `POST /api/v1/documents/upload` -- R2 storage, PDF extraction, chunking, embeddings, async processing
 - `GET/DELETE /api/v1/documents` -- document library management
+- `POST /api/v1/billing/checkout` and `/portal` -- authenticated Stripe Checkout and Customer Portal session creation
+- `POST /api/v1/webhooks/stripe` -- raw-body Stripe webhook with signature verification before entitlement writes
 
 ### What is not yet built
-- Stripe billing routes (Day 6)
 - Landing page and onboarding (Day 7)
 - Document risk analysis -- two-pass pipeline (Phase 2)
 - Drafting agent (Phase 2)
 - Live Day 3 Definition of Done checks with real Supabase JWT, Anthropic, OpenAI, R2, and Railway logs
+- Live Day 6 Stripe Checkout, Portal, and webhook verification with real Stripe dashboard credentials
 
 ### Current Build State (after Day 4)
 Frontend chat UI is implemented locally. Auth guard works through Next.js middleware and server-side
@@ -39,10 +41,22 @@ prompt caching with 1-hour TTL on system prompt + document summary (dual cache b
 Batch API for Haiku summarization, sentence-level chunk compression, query-type classification
 for output token budgeting, relevance threshold filtering on both Lovdata and document chunks,
 conversation history trimmer, summary poller cache warmup, and cost logger metadata are in place.
-Day 6 (Stripe billing) is next.
+Day 7 (landing page, onboarding, and polish) is next.
+
+### Current Build State (after Day 6)
+Stripe billing routes are implemented locally. Checkout creates or reuses a Stripe customer,
+stores `profiles.stripe_customer_id`, and returns a Checkout Session URL for
+`STRIPE_PRO_PRICE_ID`. Portal requires an existing Stripe customer and returns a Customer Portal
+Session URL. The Stripe webhook is mounted before JSON parsing with `express.raw()`, verifies
+the signature with `stripe.webhooks.constructEvent()`, returns 200 after verification, and then
+updates `profiles.tier` asynchronously for checkout completion and subscription deletion.
+The settings page shows tier and usage, and chat displays an inline Pro upgrade prompt on 429.
+Backend and frontend production builds pass locally.
 
 > Note: Live Railway/Supabase verification is still pending. `supabase db push` could not run in
 > this checkout because the Supabase CLI reported no linked project ref.
+> Live Stripe verification also remains pending until Railway has `STRIPE_SECRET_KEY`,
+> `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRO_PRICE_ID`, and the deployed webhook endpoint configured.
 
 **Format:** Phases, not time-boxes. Each phase has a definition of done. Phase 1 is broken into
 day-level tasks. Phases 2 and 3 are task-level but not day-level (scope will be clearer after
@@ -309,19 +323,21 @@ cited, streamed response. This is the product's core value. Everything else is i
 
 **Tasks:**
 
-- [ ] Create Stripe account, create product "Juridisk Pro" at NOK 299/month
-- [ ] Create `backend/src/routes/billing.ts`:
+- [DONE] Create Stripe account, create product "Juridisk Pro" at NOK 299/month
+      > Note: Code expects `STRIPE_PRO_PRICE_ID`; live Stripe dashboard verification is pending.
+- [DONE] Create `backend/src/routes/billing.ts`:
       - `POST /api/v1/billing/checkout` -- create Stripe Checkout Session, return URL
       - `POST /api/v1/billing/portal` -- create Stripe Customer Portal Session, return URL
       - `POST /api/v1/webhooks/stripe` -- handle `checkout.session.completed`,
         `customer.subscription.deleted` -- update `profiles.tier`
-- [ ] Implement webhook signature verification (critical -- see `CLAUDE.md` axiom 8)
-- [ ] Build upgrade prompt component: shown when rate limit is hit, shows remaining queries,
-      links to checkout
-- [ ] Build settings page: `/app/(dashboard)/settings/page.tsx`
+- [DONE] Implement webhook signature verification (critical -- see `CLAUDE.md` axiom 8)
+- [DONE] Build upgrade prompt component: shown when rate limit is hit, shows remaining queries,
+      links to settings
+- [DONE] Build settings page: `/app/(dashboard)/settings/page.tsx`
       - Shows current tier, usage stats
       - Upgrade button (free users) or "Administrer abonnement" (Pro users -> portal)
 - [ ] Test full billing flow: upgrade, verify tier changes, cancel, verify tier reverts
+      > Note: local TypeScript/Next builds pass; live Stripe E2E requires deployed env and webhook setup.
 - [ ] Set hard spend cap in Anthropic console: $20/month
 
 **Deliverable:** Free and Pro tiers working. Stripe webhooks updating the database correctly.

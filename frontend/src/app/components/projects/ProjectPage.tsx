@@ -645,7 +645,7 @@ export function ProjectPage({ projectId }: Props) {
         setCreatingChat(true);
         try {
             const id = await saveChat(projectId);
-            if (id) router.push(`/projects/${projectId}/assistant/chat/${id}`);
+            if (id) router.push(`/projects/${projectId}/chat/chat/${id}`);
         } finally {
             setCreatingChat(false);
         }
@@ -1588,7 +1588,7 @@ export function ProjectPage({ projectId }: Props) {
                                 {filteredChats.map((chat) => (
                                     <div
                                         key={chat.id}
-                                        onClick={() => { if (renamingChatId === chat.id) return; router.push(`/projects/${projectId}/assistant/chat/${chat.id}`); }}
+                                        onClick={() => { if (renamingChatId === chat.id) return; router.push(`/projects/${projectId}/chat/chat/${chat.id}`); }}
                                         className="group flex items-center h-10 pr-8 border-b border-gray-50 hover:bg-gray-50 cursor-pointer transition-colors"
                                     >
                                         <div className={`sticky left-0 z-[60] ${CHECK_W} p-2 flex items-center justify-center ${selectedChatIds.includes(chat.id) ? "bg-gray-50" : "bg-white"} group-hover:bg-gray-50`} onClick={(e) => e.stopPropagation()}>

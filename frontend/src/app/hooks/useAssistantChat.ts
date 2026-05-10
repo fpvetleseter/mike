@@ -802,8 +802,8 @@ export function useAssistantChat({
                 }
                 setCurrentChatId(finalChatId);
                 const chatBasePath = projectId
-                    ? `/projects/${projectId}/assistant/chat`
-                    : `/assistant/chat`;
+                    ? `/projects/${projectId}/chat/chat`
+                    : `/chat/chat`;
                 router.replace(`${chatBasePath}/${finalChatId}`);
             }
 

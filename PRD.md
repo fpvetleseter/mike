@@ -229,13 +229,14 @@ answer in the same conversation, so that I can have a real back-and-forth legal 
 - Document-grounded responses via `document_chunks` similarity search, Haiku chunk compression, and cached `summary_text` if `documentId` is present
 
 ### Rate Limiting and Billing
-**Status: Rate limiting middleware exists. Stripe billing not started (Day 6).**
+**Status: Implemented locally through Day 6. Live Stripe E2E verification pending.**
 
 - Free tier: 10 queries/day, 3 document uploads/month
-- Rate limit messaging in Norwegian with upgrade prompt
-- Stripe Pro subscription (NOK 299/month)
-- Stripe webhook-driven entitlement (immediate activation)
-- Basic billing management (cancel, view status) via Stripe Customer Portal
+- Rate limit messaging in Norwegian with inline upgrade prompt
+- Stripe Pro subscription (NOK 299/month) through backend Checkout Session creation
+- Stripe webhook-driven entitlement via signed webhook verification before any database write
+- Basic billing management through Stripe Customer Portal
+- Settings page shows current tier and usage
 
 ### Onboarding
 **Status: Not started (Day 7).**

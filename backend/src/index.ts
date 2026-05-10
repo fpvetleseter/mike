@@ -7,7 +7,9 @@ import helmet from "helmet";
 import { createServerSupabase } from "./lib/supabase";
 import documentsRouter from "./routes/documents";
 import aiRouter from "./routes/ai";
+import billingRouter from "./routes/billing";
 import conversationsRouter from "./routes/conversations";
+import stripeWebhookRouter from "./routes/webhooks";
 import { startSummaryPoller } from "./jobs/summaryPoller";
 
 const app = express();
@@ -21,6 +23,13 @@ app.use(
     origin: process.env.FRONTEND_URL ?? "http://localhost:3000",
     credentials: true,
   }),
+);
+
+// SECURITY: Stripe webhooks must receive the raw body for signature verification.
+app.use(
+  "/api/v1/webhooks/stripe",
+  express.raw({ type: "application/json" }),
+  stripeWebhookRouter,
 );
 
 app.use(express.json({ limit: "10mb" }));
@@ -48,6 +57,7 @@ app.get("/health", async (_req, res) => {
 });
 
 app.use("/api/v1/ai", aiRouter);
+app.use("/api/v1/billing", billingRouter);
 app.use("/api/v1/conversations", conversationsRouter);
 app.use("/api/v1/documents", documentsRouter);
 
@@ -70,7 +80,9 @@ app.listen(PORT, () => {
     execSync("libreoffice --version", { stdio: "pipe" });
     console.log("[startup] LibreOffice: available");
   } catch {
-    console.warn("[startup] LibreOffice: NOT available -- DOCX conversion will fail");
+    console.warn(
+      "[startup] LibreOffice: NOT available -- DOCX conversion will fail",
+    );
   }
   startSummaryPoller(30000);
 });

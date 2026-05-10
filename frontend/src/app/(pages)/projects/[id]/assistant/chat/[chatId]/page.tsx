@@ -570,7 +570,7 @@ export default function ProjectAssistantChatPage({ params }: Props) {
         setCreatingChat(true);
         try {
             const id = await saveChat(projectId);
-            if (id) router.push(`/projects/${projectId}/assistant/chat/${id}`);
+            if (id) router.push(`/projects/${projectId}/chat/chat/${id}`);
         } finally {
             setCreatingChat(false);
         }
