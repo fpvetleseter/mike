@@ -52,9 +52,9 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
     const loadProfile = useCallback(async (userId: string) => {
         try {
             const { data, error } = await supabase
-                .from("user_profiles")
+                .from("profiles")
                 .select("*")
-                .eq("user_id", userId)
+                .eq("id", userId)
                 .single();
 
             // Define credit limit constant
@@ -116,13 +116,13 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
                 // 2. Update database in background if needed
                 if (shouldUpdateDb) {
                     supabase
-                        .from("user_profiles")
+                        .from("profiles")
                         .update({
                             message_credits_used: 0,
                             credits_reset_date: resetDate,
                             updated_at: new Date().toISOString(),
                         })
-                        .eq("user_id", userId)
+                        .eq("id", userId)
                         .then(({ error }) => {
                             if (error)
                                 console.error(
@@ -172,12 +172,12 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
 
             try {
                 const { error } = await supabase
-                    .from("user_profiles")
+                    .from("profiles")
                     .update({
                         display_name: displayName,
                         updated_at: new Date().toISOString(),
                     })
-                    .eq("user_id", user.id);
+                    .eq("id", user.id);
 
                 if (error) {
                     throw error;
@@ -197,12 +197,12 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
             if (!user) return false;
             try {
                 const { error } = await supabase
-                    .from("user_profiles")
+                    .from("profiles")
                     .update({
                         organisation,
                         updated_at: new Date().toISOString(),
                     })
-                    .eq("user_id", user.id);
+                    .eq("id", user.id);
                 if (error) throw error;
                 setProfile((prev) =>
                     prev ? { ...prev, organisation } : null,
@@ -225,12 +225,12 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
             if (!dbField) return false;
             try {
                 const { error } = await supabase
-                    .from("user_profiles")
+                    .from("profiles")
                     .update({
                         [dbField]: value,
                         updated_at: new Date().toISOString(),
                     })
-                    .eq("user_id", user.id);
+                    .eq("id", user.id);
                 if (error) throw error;
                 setProfile((prev) =>
                     prev ? { ...prev, [field]: value } : null,
@@ -256,12 +256,12 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
             const normalized = value?.trim() ? value.trim() : null;
             try {
                 const { error } = await supabase
-                    .from("user_profiles")
+                    .from("profiles")
                     .update({
                         [dbField]: normalized,
                         updated_at: new Date().toISOString(),
                     })
-                    .eq("user_id", user.id);
+                    .eq("id", user.id);
                 if (error) throw error;
                 setProfile((prev) =>
                     prev ? { ...prev, [stateField]: normalized } : null,
@@ -294,12 +294,12 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
             const newCreditsUsed = profile.messageCreditsUsed + 1;
 
             const { error } = await supabase
-                .from("user_profiles")
+                .from("profiles")
                 .update({
                     message_credits_used: newCreditsUsed,
                     updated_at: new Date().toISOString(),
                 })
-                .eq("user_id", user.id);
+                .eq("id", user.id);
 
             if (error) {
                 throw error;

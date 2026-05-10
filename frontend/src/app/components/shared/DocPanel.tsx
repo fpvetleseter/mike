@@ -359,9 +359,8 @@ function EditResolveButtons({
                     data: { session },
                 } = await supabase.auth.getSession();
                 const token = session?.access_token;
-                const apiBase =
-                    process.env.NEXT_PUBLIC_API_BASE_URL ??
-                    "http://localhost:3001";
+                const apiBase = process.env.NEXT_PUBLIC_BACKEND_URL;
+                if (!apiBase) throw new Error("NEXT_PUBLIC_BACKEND_URL is not set");
                 const resp = await fetch(
                     `${apiBase}/single-documents/${edit.document_id}/edits/${edit.edit_id}/${verb}`,
                     {
@@ -461,8 +460,8 @@ function DownloadButton({
                 data: { session },
             } = await supabase.auth.getSession();
             const token = session?.access_token;
-            const apiBase =
-                process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
+            const apiBase = process.env.NEXT_PUBLIC_BACKEND_URL;
+            if (!apiBase) throw new Error("NEXT_PUBLIC_BACKEND_URL is not set");
             const qs = versionId
                 ? `?version_id=${encodeURIComponent(versionId)}`
                 : "";

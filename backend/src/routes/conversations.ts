@@ -5,8 +5,18 @@ import { validateBody } from "../middleware/validate";
 import { createServerSupabase } from "../lib/supabase";
 
 const CreateConversationSchema = z.object({
-  documentId: z.string().uuid().optional(),
-  title: z.string().max(200).optional(),
+  documentId: z
+    .preprocess(
+      (v) => (v === "" || v === null || v === undefined ? undefined : v),
+      z.string().uuid().optional(),
+    ),
+  title: z.preprocess(
+    (val) =>
+      val === null || val === undefined || val === ""
+        ? "Ny samtale"
+        : val,
+    z.string().max(200),
+  ),
 });
 
 type CreateConversationBody = z.infer<typeof CreateConversationSchema>;
@@ -16,6 +26,11 @@ const conversationsRouter = Router();
 conversationsRouter.post(
   "/",
   authMiddleware,
+  (req, _res, next) => {
+    console.log("[conversations] POST body:", req.body);
+    console.log("[conversations] POST user:", req.user);
+    next();
+  },
   validateBody(CreateConversationSchema),
   async (req, res) => {
     console.log("[conversations] POST called", { userId: req.user?.id });
@@ -49,7 +64,7 @@ conversationsRouter.post(
         .insert({
           user_id: userId,
           document_id: documentId ?? null,
-          title: title ?? null,
+          title,
         })
         .select("id, created_at")
         .single();

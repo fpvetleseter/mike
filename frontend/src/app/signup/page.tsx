@@ -60,17 +60,17 @@ export default function SignupPage() {
                 const trimmedOrg = organisation.trim();
                 if (trimmedName || trimmedOrg) {
                     // The handle_new_user DB trigger creates the
-                    // user_profiles row synchronously on auth.users insert,
+                    // profiles row synchronously on auth.users insert,
                     // so we UPDATE rather than upsert — RLS permits update
                     // of the user's own row but blocks self-INSERT.
                     const { error: profileError } = await supabase
-                        .from("user_profiles")
+                        .from("profiles")
                         .update({
                             ...(trimmedName && { display_name: trimmedName }),
                             ...(trimmedOrg && { organisation: trimmedOrg }),
                             updated_at: new Date().toISOString(),
                         })
-                        .eq("user_id", data.session.user.id);
+                        .eq("id", data.session.user.id);
                     if (profileError) {
                         console.error(
                             "[signup] failed to persist profile fields",

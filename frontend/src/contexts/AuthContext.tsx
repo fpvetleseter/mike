@@ -29,8 +29,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         const ensureProfile = async (accessToken: string) => {
-            const apiBase =
-                process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
+            const apiBase = process.env.NEXT_PUBLIC_BACKEND_URL;
+            if (!apiBase) return;
             await fetch(`${apiBase}/user/profile`, {
                 method: "POST",
                 headers: { Authorization: `Bearer ${accessToken}` },
