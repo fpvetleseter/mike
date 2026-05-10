@@ -210,14 +210,15 @@ answer in the same conversation, so that I can have a real back-and-forth legal 
 - Session persistence (30-day refresh token)
 
 ### Chat Interface
-**Status: Backend and frontend implemented locally through Day 5. Live E2E verification pending.**
+**Status: Implemented locally (Iteration 2). Rebuilt with liquid-glass aesthetic.**
 
 - Free-form legal Q&A (no document required)
 - Streaming AI responses (SSE from `/api/v1/ai/chat`)
 - Lovdata citations extracted, stored, and displayed in the chat UI
 - Disclaimer appended to every response by backend post-processing
-- Conversation history routes and sidebar UI exist
+- Conversation history routes and functional glass sidebar (rebuilt in Iteration 2)
 - New conversation button
+- Fixed tagline readability in empty state
 
 ### Document Management
 **Status: Backend and frontend implemented locally through Day 5. Live E2E verification pending.**
@@ -229,14 +230,19 @@ answer in the same conversation, so that I can have a real back-and-forth legal 
 - Document-grounded responses via `document_chunks` similarity search, Haiku chunk compression, and cached `summary_text` if `documentId` is present
 
 ### Rate Limiting and Billing
-**Status: Implemented locally through Day 6. Live Stripe E2E verification pending.**
+**Status: Implemented locally (Iteration 3). Sidebar glass fixed, conditional upgrade CTA implemented.**
 
 - Free tier: 10 queries/day, 3 document uploads/month
-- Rate limit messaging in Norwegian with inline upgrade prompt
+- Rate limit messaging in Norwegian with inline upgrade prompt and sidebar upgrade card
 - Stripe Pro subscription (NOK 299/month) through backend Checkout Session creation
 - Stripe webhook-driven entitlement via signed webhook verification before any database write
 - Basic billing management through Stripe Customer Portal
 - Settings page shows current tier and usage
+- Usage progress bar visible in sidebar (green→amber→orange→red) and mobile bottom nav
+- Upgrade card is usage-gated: shown only at 6+ queries (free tier), fades in at 6/10, fully visible at 10/10
+- Ambient brand copy shown below progress bar when queries < 6 (no premature CTA)
+- Upgrade card wired to `POST /api/v1/billing/checkout` (dependency: deployed backend with Stripe keys)
+- Input bar disabled at 10/10 when backend returns 429; sidebar shows "Du har brukt alle dagens spørsmål."
 
 ### Onboarding
 **Status: Not started (Day 7).**

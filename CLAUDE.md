@@ -584,3 +584,57 @@ curl -N -H "Authorization: Bearer YOUR_JWT" \
   - Stripe Checkout URL creation with live/test key.
   - Stripe Customer Portal URL creation.
   - Signed Stripe webhook delivery to Railway and observed `profiles.tier` updates.
+
+### After Day 6 UI (Iteration 2)
+
+**Components rebuilt:**
+- `frontend/src/components/layout/Sidebar.tsx`: Rebuilt from scratch with five zones. Glass effect (`rgba(18, 14, 10, 0.68)`, `blur(16px)`, `saturate(1.5)`).
+- `frontend/src/components/chat/EmptyState.tsx`: Tagline fixed with `var(--color-accent-gold)` and text-shadow.
+- `frontend/src/app/(dashboard)/chat/ChatLayout.tsx`: Added `handleUpgrade` (wired to `/api/v1/billing/checkout`), passed new props to Sidebar, added mobile progress bar.
+- `frontend/src/lib/nb.ts`: Added strings for usage, upgrade, and empty state.
+- `frontend/src/app/globals.css`: Added `pulse-bar` animation.
+
+**Architectural conventions established:**
+- **Glass surfaces:** Use `backdrop-filter` with `isolation: isolate` for all glass components. Avoid solid backgrounds.
+- **Usage tracking:** Frontend usage bars are driven by `queriesToday` passed from `ChatPage` server component.
+- **Tailwind v4:** `tailwind.config.ts` is absent; all theme configuration and animations live in `globals.css`.
+
+**Next dependencies:**
+- The upgrade card and button call `POST /api/v1/billing/checkout`. This requires the backend to be deployed to Railway with valid Stripe environment variables (`STRIPE_SECRET_KEY`, etc.).
+- Day 7 tasks (landing page, onboarding) are next.
+
+### After Day 6 UI (Iteration 3)
+
+**Glass fix — critical pattern:**
+- `SidebarRoot` uses inline `style` (not Tailwind classes) for all glass properties:
+  `background: "rgba(18, 14, 10, 0.68)"`, `backdropFilter: "blur(16px) saturate(1.5)"`,
+  `WebkitBackdropFilter: "blur(16px) saturate(1.5)"`, `isolation: "isolate"`.
+- Any future wrapper around `<Sidebar>` MUST NOT set a solid `background-color`.
+  The painting is composited through the sidebar by the browser because the body's
+  `background-image` sits behind the `<aside>` element in the same stacking context.
+- Tailwind classes like `backdrop-blur-[16px]` and `saturate-[1.5]` (which targets `filter`,
+  not `backdrop-filter`) were replaced with explicit inline styles to guarantee correctness.
+
+**Progress bar (Zone 2):**
+- 4px height, track `rgba(255,255,255,0.07)`, border-radius 999px.
+- Fill color steps: 0–5 → `#4a9e6b`, 6–7 → `#c9922a`, 8–9 → `#c96a2a`, 10 → `#c93a2a`.
+- `transition: width 600ms ease-out, background-color 400ms ease` for smooth color change.
+- At 10/10: `pulse-bar` animation (700ms, forwards) is applied to the fill div.
+
+**Upgrade card (Zone 2b) — conditional display pattern:**
+- `queriesUsed < 6` (free tier): render ambient copy only, no CTA.
+- `queriesUsed >= 6` (free tier): card renders; uses `useEffect` + local state `cardVisible`
+  to trigger a CSS transition (opacity 0→1, translateY 4px→0, 300ms ease-out) on mount.
+  This avoids needing a CSS keyframe for the slide-in.
+- At 10/10: same `pulse-bar` animation on card opacity, plus "Du har brukt alle dagens spørsmål." text.
+- Card background: `rgba(201,168,76,0.07)` — no solid fills, no opaque amber box.
+- Upgrade button: transparent background, `1px solid rgba(201,168,76,0.5)` border, hover uses
+  `onMouseEnter`/`onMouseLeave` to set inline styles (avoids Tailwind `hover:` conflict with inline base).
+
+**New strings:** `frontend/src/lib/nb.ts` now has a `sidebar` section.
+  Old `nb.chat.dagensBruk`, `nb.chat.usageToday` remain for ChatLayout backward compatibility.
+
+**Remaining dependencies:**
+- `POST /api/v1/billing/checkout` requires Railway deploy with Stripe env vars.
+- Input disabled state at initial 10/10 load requires ChatLayout to also check `queriesToday >= 10`
+  prop (currently only disabled on 429 response). Not yet implemented — tracked as known gap.

@@ -1,19 +1,29 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import MessageBubble from "@/components/chat/MessageBubble";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+
+import CitationChips from "@/components/chat/CitationChips";
+import EmptyState from "@/components/chat/EmptyState";
+import { nb } from "@/lib/nb";
+import { cn } from "@/lib/utils";
 import type { Message } from "@/types/api";
 
 interface MessageListProps {
     messages: Message[];
     isStreaming: boolean;
     streamingContent: string;
+    onSuggestion: (suggestion: string) => void;
+    disabled?: boolean;
 }
 
 export default function MessageList({
     messages,
     isStreaming,
     streamingContent,
+    onSuggestion,
+    disabled = false,
 }: MessageListProps) {
     const bottomRef = useRef<HTMLDivElement | null>(null);
 
@@ -33,22 +43,81 @@ export default function MessageList({
               }
             : null;
 
+    if (messages.length === 0 && !streamingMessage) {
+        return <EmptyState onSuggestion={onSuggestion} disabled={disabled} />;
+    }
+
     return (
-        <div className="flex min-h-full flex-col gap-4 px-4 py-6 md:px-8">
+        <div className="mx-auto flex min-h-full w-full max-w-[720px] flex-col gap-4 px-0 py-6 md:py-8">
             {messages.length === 0 && isStreaming && !streamingContent ? (
-                <div className="space-y-3">
-                    <div className="h-20 w-3/4 animate-pulse rounded-2xl bg-slate-100" />
-                    <div className="h-16 w-1/2 animate-pulse rounded-2xl bg-slate-100" />
-                    <div className="h-24 w-2/3 animate-pulse rounded-2xl bg-slate-100" />
+                <div className="flex flex-col gap-3">
+                    <div className="glass-surface h-20 w-full animate-pulse rounded-[10px] border border-[var(--color-border-whisper)] bg-[var(--color-surface-message-ai)]" />
+                    <div className="glass-surface h-16 w-full animate-pulse rounded-[10px] border border-[var(--color-border-whisper)] bg-[var(--color-surface-message-ai)]" />
+                    <div className="glass-surface h-24 w-full animate-pulse rounded-[10px] border border-[var(--color-border-whisper)] bg-[var(--color-surface-message-ai)]" />
                 </div>
             ) : null}
             {messages.map((message) => (
-                <MessageBubble key={message.id} message={message} />
+                <MessageCard key={message.id} message={message} />
             ))}
             {streamingMessage ? (
-                <MessageBubble message={streamingMessage} isStreaming />
+                <MessageCard message={streamingMessage} isStreaming />
             ) : null}
             <div ref={bottomRef} />
         </div>
+    );
+}
+
+function MessageCard({
+    message,
+    isStreaming = false,
+}: {
+    message: Message;
+    isStreaming?: boolean;
+}) {
+    const isUser = message.role === "user";
+
+    return (
+        <article
+            className={cn(
+                "glass-surface rounded-[10px] border border-[var(--color-border-whisper)] px-5 py-4 text-left",
+                isUser
+                    ? "bg-[var(--color-surface-message-user)]"
+                    : "bg-[var(--color-surface-message-ai)]"
+            )}
+        >
+            <div
+                className={cn(
+                    "mb-2 font-sans text-[11px] font-medium uppercase tracking-widest",
+                    isUser
+                        ? "text-[var(--color-accent-gold)]"
+                        : "text-[var(--color-text-secondary)]"
+                )}
+            >
+                {isUser ? nb.chat.userLabel : nb.chat.assistantLabel}
+            </div>
+            {isUser ? (
+                <p className="whitespace-pre-wrap font-sans text-[15px] leading-6 text-[var(--color-text-primary)]">
+                    {message.content}
+                </p>
+            ) : (
+                <div className="flex flex-col gap-3">
+                    <div className="juridisk-markdown">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {message.content}
+                        </ReactMarkdown>
+                        {isStreaming ? (
+                            <span
+                                aria-hidden="true"
+                                className="streaming-cursor ml-1 inline-block h-4 w-0.5 translate-y-0.5 bg-[var(--color-accent-gold)]"
+                            />
+                        ) : null}
+                    </div>
+                    <CitationChips citations={message.citations} />
+                    <p className="font-sans text-xs font-light italic text-[var(--color-text-secondary)]">
+                        {nb.disclaimer.short}
+                    </p>
+                </div>
+            )}
+        </article>
     );
 }

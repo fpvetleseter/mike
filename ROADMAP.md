@@ -28,30 +28,22 @@
 - Live Day 3 Definition of Done checks with real Supabase JWT, Anthropic, OpenAI, R2, and Railway logs
 - Live Day 6 Stripe Checkout, Portal, and webhook verification with real Stripe dashboard credentials
 
-### Current Build State (after Day 4)
-Frontend chat UI is implemented locally. Auth guard works through Next.js middleware and server-side
-Supabase session checks before rendering `/chat`. SSE streaming is wired to the Railway backend URL.
-Citation display, disclaimer footer, conversation sidebar, and document upload are implemented.
-Day 5 document processing backend integration and live E2E verification are next.
+### Current Build State (after Day 6 UI Iteration 3)
+Sidebar glass is fixed: `SidebarRoot` uses inline `style` with `background: rgba(18,14,10,0.68)`,
+`backdropFilter: "blur(16px) saturate(1.5)"`, and `-webkit-backdrop-filter` explicitly set.
+`isolation: isolate` is applied on the sidebar element. Any parent wrapper must not set a solid
+background or the backdrop-filter will not composite against the painting.
 
-### Current Build State (after Day 5)
-Full document processing pipeline is implemented locally. LibreOffice DOCX conversion, PDF extraction,
-chunking, embeddings, and pgvector upsert are implemented. Token optimization stack:
-prompt caching with 1-hour TTL on system prompt + document summary (dual cache breakpoints),
-Batch API for Haiku summarization, sentence-level chunk compression, query-type classification
-for output token budgeting, relevance threshold filtering on both Lovdata and document chunks,
-conversation history trimmer, summary poller cache warmup, and cost logger metadata are in place.
-Day 7 (landing page, onboarding, and polish) is next.
+Progress bar (Zone 2): 4px height, green (#4a9e6b) → amber (#c9922a, 6+) → deep orange (#c96a2a, 8+) → red (#c93a2a, 10). Width and color transition via `transition: width 600ms ease-out, background-color 400ms ease`. At 10/10 the bar pulses once via `pulse-bar` keyframe.
 
-### Current Build State (after Day 6)
-Stripe billing routes are implemented locally. Checkout creates or reuses a Stripe customer,
-stores `profiles.stripe_customer_id`, and returns a Checkout Session URL for
-`STRIPE_PRO_PRICE_ID`. Portal requires an existing Stripe customer and returns a Customer Portal
-Session URL. The Stripe webhook is mounted before JSON parsing with `express.raw()`, verifies
-the signature with `stripe.webhooks.constructEvent()`, returns 200 after verification, and then
-updates `profiles.tier` asynchronously for checkout completion and subscription deletion.
-The settings page shows tier and usage, and chat displays an inline Pro upgrade prompt on 429.
-Backend and frontend production builds pass locally.
+Upgrade card (Zone 2b): conditional on tier=free. Shows ambient copy "Spør om alt innen norsk rett." at 0-5 queries. Fades in (opacity 0→1, translateY 4px→0, 300ms) at 6+ queries. Fully visible + pulsing border at 10/10. Glass surface: `rgba(201,168,76,0.07)` tint, `1px solid rgba(201,168,76,0.28)` border, `backdrop-filter: blur(10px)`. No solid backgrounds. Wired to `POST /api/v1/billing/checkout`.
+
+New Conversation button: glass ghost button with Plus icon. Not uppercase.
+User footer: initials avatar (28px circle, gold border), email truncated to 22 chars, LogOut icon.
+Conversation list empty state: FileText icon at 35% opacity + Paperclip inline hint.
+
+All Norwegian strings routed through `nb.sidebar.*` in `frontend/src/lib/nb.ts`.
+Frontend `npm run build` passes locally.
 
 > Note: Live Railway/Supabase verification is still pending. `supabase db push` could not run in
 > this checkout because the Supabase CLI reported no linked project ref.

@@ -1,15 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { History, MessageSquare, Upload, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import ChatInput from "@/components/chat/ChatInput";
+
+import DisclaimerFooter from "@/components/chat/DisclaimerFooter";
+import InputBar from "@/components/chat/InputBar";
 import MessageList from "@/components/chat/MessageList";
-import DocumentList from "@/components/documents/DocumentList";
-import DocumentUpload from "@/components/documents/DocumentUpload";
-import ConversationSidebar from "@/components/layout/ConversationSidebar";
-import DisclaimerFooter from "@/components/layout/DisclaimerFooter";
+import Sidebar from "@/components/layout/Sidebar";
+import { Button } from "@/components/ui/button";
 import { createBrowserClient } from "@/lib/supabase/client";
 import { nb } from "@/lib/nb";
+import { cn } from "@/lib/utils";
 import type {
     ApiResponse,
     Citation,
@@ -20,11 +22,19 @@ import type {
 
 interface ChatLayoutProps {
     initialConversations: Conversation[];
+    userEmail: string;
+    tier: "free" | "pro";
+    queriesToday: number;
 }
 
 interface CreateConversationData {
     id: string;
     createdAt?: string;
+}
+
+interface UploadResponseData {
+    documentId: string;
+    status: Document["status"];
 }
 
 interface SseDoneEvent {
@@ -47,10 +57,27 @@ interface SseErrorEvent {
 type SseEvent = SseDeltaEvent | SseDoneEvent | SseErrorEvent;
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+const maxFileSize = 10 * 1024 * 1024;
+const freeDailyLimit = 10;
+const allowedMimeTypes = new Set([
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+]);
 
 function isCreateConversationData(value: unknown): value is CreateConversationData {
     if (!value || typeof value !== "object") return false;
     return typeof (value as Record<string, unknown>).id === "string";
+}
+
+function isUploadResponseData(value: unknown): value is UploadResponseData {
+    if (!value || typeof value !== "object") return false;
+    const record = value as Record<string, unknown>;
+    return (
+        typeof record.documentId === "string" &&
+        (record.status === "processing" ||
+            record.status === "ready" ||
+            record.status === "error")
+    );
 }
 
 function isSseEvent(value: unknown): value is SseEvent {
@@ -63,8 +90,8 @@ function extractClientCitations(content: string): Citation[] {
     const urlRegex = /https:\/\/lovdata\.no\/[^\s)]+/g;
     const urls = Array.from(new Set(content.match(urlRegex) ?? []));
     return urls.map((url) => ({
-        law: "Lovdata",
-        section: "Se kilde",
+        law: nb.chat.lovdata,
+        section: nb.chat.source,
         url,
     }));
 }
@@ -78,26 +105,71 @@ async function getAccessToken(): Promise<string | null> {
     return session?.access_token ?? null;
 }
 
-export default function ChatLayout({ initialConversations }: ChatLayoutProps) {
+export default function ChatLayout({
+    initialConversations,
+    userEmail,
+    tier,
+    queriesToday,
+}: ChatLayoutProps) {
     const router = useRouter();
     const [conversations, setConversations] =
         useState<Conversation[]>(initialConversations);
     const [activeConversationId, setActiveConversationId] = useState<string | null>(
-        initialConversations[0]?.id ?? null
+        null
     );
     const [messages, setMessages] = useState<Message[]>([]);
     const [isStreaming, setIsStreaming] = useState(false);
     const [streamingContent, setStreamingContent] = useState("");
     const [documents, setDocuments] = useState<Document[]>([]);
     const [activeDocumentId, setActiveDocumentId] = useState<string | null>(null);
+    const [attachedFileName, setAttachedFileName] = useState<string | null>(null);
     const [rateLimited, setRateLimited] = useState(false);
-    const [sidebarOpen, setSidebarOpen] = useState(false);
-    const [documentPanelOpen, setDocumentPanelOpen] = useState(false);
+    const [mobileHistoryOpen, setMobileHistoryOpen] = useState(false);
+    const [uploadRequestId, setUploadRequestId] = useState(0);
     const [isLoadingConversations, setIsLoadingConversations] = useState(false);
-    const [isLoadingDocuments, setIsLoadingDocuments] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
+
+    useEffect(() => {
+        if (!backendUrl) {
+            console.error(
+                "[Juridisk] NEXT_PUBLIC_BACKEND_URL is not set. " +
+                    "Add it to frontend/.env.local (local) or Vercel env vars (production). " +
+                    "Value must be the full Railway URL, e.g. https://juridisk-backend.railway.app"
+            );
+        }
+    }, [backendUrl]);
+
+    useEffect(() => {
+        if (!backendUrl) return;
+        fetch(`${backendUrl}/health`)
+            .then((response) => {
+                if (!response.ok) {
+                    console.warn(
+                        "[Juridisk] Backend health check failed:",
+                        response.status
+                    );
+                } else {
+                    console.info("[Juridisk] Backend reachable.");
+                }
+            })
+            .catch((caughtError: unknown) => {
+                const message =
+                    caughtError instanceof Error
+                        ? caughtError.message
+                        : "Unknown error";
+                console.error("[Juridisk] Backend unreachable:", message);
+            });
+    }, [backendUrl]);
+
+    const usageLabel =
+        tier === "free"
+            ? nb.chat.usageToday(
+                  Math.min(queriesToday, freeDailyLimit),
+                  freeDailyLimit
+              )
+            : undefined;
 
     const showError = useCallback((message: string) => {
         setError(message);
@@ -127,7 +199,6 @@ export default function ChatLayout({ initialConversations }: ChatLayoutProps) {
         const token = await getAccessToken();
         if (!token) return;
 
-        setIsLoadingDocuments(true);
         try {
             const response = await fetch(`${backendUrl}/api/v1/documents`, {
                 headers: { Authorization: `Bearer ${token}` },
@@ -135,8 +206,8 @@ export default function ChatLayout({ initialConversations }: ChatLayoutProps) {
             if (!response.ok) return;
             const result = (await response.json()) as ApiResponse<Document[]>;
             setDocuments(result.data ?? []);
-        } finally {
-            setIsLoadingDocuments(false);
+        } catch {
+            return;
         }
     }, []);
 
@@ -156,8 +227,29 @@ export default function ChatLayout({ initialConversations }: ChatLayoutProps) {
         };
     }, []);
 
+    useEffect(() => {
+        if (!activeDocumentId) {
+            setAttachedFileName(null);
+            return;
+        }
+
+        const activeDocument = documents.find(
+            (document) => document.id === activeDocumentId
+        );
+        if (activeDocument) {
+            setAttachedFileName(activeDocument.filename);
+        }
+    }, [activeDocumentId, documents]);
+
     async function createConversation(): Promise<string | null> {
-        if (!backendUrl) return null;
+        if (!backendUrl) {
+            console.error(
+                "[Juridisk] NEXT_PUBLIC_BACKEND_URL is not set. " +
+                    "Add it to frontend/.env.local (local) or Vercel env vars (production). " +
+                    "Value must be the full Railway URL, e.g. https://juridisk-backend.railway.app"
+            );
+            return null;
+        }
         const token = await getAccessToken();
         if (!token) return null;
 
@@ -186,14 +278,13 @@ export default function ChatLayout({ initialConversations }: ChatLayoutProps) {
         return result.data.id;
     }
 
-    async function handleNewConversation(): Promise<void> {
-        const id = await createConversation();
-        if (id) {
-            setMessages([]);
-            setActiveDocumentId(null);
-            setRateLimited(false);
-            setSidebarOpen(false);
-        }
+    function handleNewConversation(): void {
+        setMessages([]);
+        setActiveConversationId(null);
+        setActiveDocumentId(null);
+        setAttachedFileName(null);
+        setRateLimited(false);
+        setMobileHistoryOpen(false);
     }
 
     async function handleSelectConversation(id: string): Promise<void> {
@@ -218,9 +309,81 @@ export default function ChatLayout({ initialConversations }: ChatLayoutProps) {
             const result = (await response.json()) as ApiResponse<Message[]>;
             setMessages(result.data ?? []);
             setActiveConversationId(id);
-            setSidebarOpen(false);
+            setRateLimited(false);
+            setMobileHistoryOpen(false);
         } catch {
             showError(nb.errors.conversationLoad);
+        }
+    }
+
+    async function handleFileSelected(file: File): Promise<void> {
+        if (!backendUrl) {
+            showError(nb.errors.generic);
+            return;
+        }
+
+        if (file.size > maxFileSize) {
+            showError(nb.errors.fileTooLarge);
+            return;
+        }
+
+        if (!allowedMimeTypes.has(file.type)) {
+            showError(nb.errors.invalidFileType);
+            return;
+        }
+
+        const token = await getAccessToken();
+        if (!token) {
+            showError(nb.errors.unauthorized);
+            return;
+        }
+
+        setAttachedFileName(file.name);
+
+        try {
+            const formData = new FormData();
+            formData.append("file", file);
+
+            const response = await fetch(`${backendUrl}/api/v1/documents/upload`, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+                body: formData,
+            });
+
+            if (response.status === 413) {
+                showError(nb.errors.fileTooLarge);
+                setAttachedFileName(null);
+                return;
+            }
+
+            if (!response.ok) {
+                showError(nb.errors.generic);
+                setAttachedFileName(null);
+                return;
+            }
+
+            const result = (await response.json()) as ApiResponse<unknown>;
+            if (!isUploadResponseData(result.data)) {
+                showError(nb.errors.generic);
+                setAttachedFileName(null);
+                return;
+            }
+
+            const uploadedDocument: Document = {
+                id: result.data.documentId,
+                user_id: "",
+                filename: file.name,
+                status: result.data.status,
+                created_at: new Date().toISOString(),
+            };
+            setDocuments((previous) => [uploadedDocument, ...previous]);
+            setActiveDocumentId(uploadedDocument.id);
+            await fetchDocuments();
+        } catch {
+            showError(nb.errors.generic);
+            setAttachedFileName(null);
         }
     }
 
@@ -237,7 +400,14 @@ export default function ChatLayout({ initialConversations }: ChatLayoutProps) {
         }
 
         const conversationId = activeConversationId ?? (await createConversation());
-        if (!conversationId) return;
+        if (!conversationId) {
+            if (!backendUrl) {
+                showError(
+                    "Tilkoblingen til serveren er ikke konfigurert. Kontakt support."
+                );
+            }
+            return;
+        }
 
         const optimisticMessage: Message = {
             id: `temp-${Date.now()}`,
@@ -330,8 +500,8 @@ export default function ChatLayout({ initialConversations }: ChatLayoutProps) {
                             setStreamingContent("");
                             if (parsed.conversationId && !activeConversationId) {
                                 setActiveConversationId(parsed.conversationId);
-                                await fetchConversations();
                             }
+                            await fetchConversations();
                         } else if (parsed.type === "error") {
                             showError(parsed.message || nb.errors.streamFailed);
                         }
@@ -354,6 +524,7 @@ export default function ChatLayout({ initialConversations }: ChatLayoutProps) {
                     },
                 ]);
                 setStreamingContent("");
+                await fetchConversations();
             }
         } catch (caughtError: unknown) {
             if (
@@ -370,145 +541,198 @@ export default function ChatLayout({ initialConversations }: ChatLayoutProps) {
         }
     }
 
-    const activeDocument = documents.find(
-        (document) => document.id === activeDocumentId
-    );
+    async function handleLogout(): Promise<void> {
+        const supabase = createBrowserClient();
+        await supabase.auth.signOut();
+        router.push("/login");
+    }
+
+    async function handleUpgrade(): Promise<void> {
+        if (!backendUrl) return;
+        const token = await getAccessToken();
+        if (!token) {
+            showError(nb.errors.unauthorized);
+            return;
+        }
+
+        try {
+            const response = await fetch(`${backendUrl}/api/v1/billing/checkout`, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+            });
+
+            if (!response.ok) {
+                showError(nb.errors.generic);
+                return;
+            }
+
+            const result = (await response.json()) as ApiResponse<{ url: string }>;
+            if (result.data?.url) {
+                window.location.href = result.data.url;
+            } else {
+                showError(nb.errors.generic);
+            }
+        } catch {
+            showError(nb.errors.generic);
+        }
+    }
 
     const sidebar = (
-        <ConversationSidebar
+        <Sidebar
             conversations={conversations}
             activeConversationId={activeConversationId}
             onSelectConversation={(id) => void handleSelectConversation(id)}
-            onNewConversation={() => void handleNewConversation()}
+            onNewConversation={handleNewConversation}
+            onLogout={() => void handleLogout()}
+            onUpgrade={() => void handleUpgrade()}
             isLoading={isLoadingConversations}
+            userEmail={userEmail}
+            tier={tier}
+            queriesToday={queriesToday}
         />
     );
 
     return (
-        <div className="flex h-screen bg-white">
-            <div className="hidden md:block">{sidebar}</div>
-            {sidebarOpen ? (
-                <>
-                    <button
-                        type="button"
-                        aria-label="Lukk samtalemeny"
-                        className="fixed inset-0 z-30 bg-black/20 md:hidden"
-                        onClick={() => setSidebarOpen(false)}
-                    />
-                    <div className="fixed inset-y-0 left-0 z-40 w-72 shadow-xl md:hidden">
-                        {sidebar}
+        <div className="min-h-svh bg-transparent text-[var(--color-text-primary)]">
+            <div className="flex h-svh bg-transparent">
+                <div className="hidden shrink-0 md:block">{sidebar}</div>
+                <main className="isolate flex min-w-0 flex-1 flex-col">
+                    <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5 md:px-8">
+                        <MessageList
+                            messages={messages}
+                            isStreaming={isStreaming}
+                            streamingContent={streamingContent}
+                            onSuggestion={(suggestion) => void handleSend(suggestion)}
+                            disabled={rateLimited || isStreaming}
+                        />
                     </div>
-                </>
-            ) : null}
-            <div className="flex min-w-0 flex-1 flex-col">
-                <header className="flex h-14 items-center gap-3 border-b border-slate-200 px-4">
-                    <button
-                        type="button"
-                        aria-label="Åpne samtalemeny"
-                        onClick={() => setSidebarOpen(true)}
-                        className="min-h-11 min-w-11 rounded border border-slate-200 text-slate-700 md:hidden"
-                    >
-                        ☰
-                    </button>
-                    <div className="hidden text-sm font-semibold text-slate-950 md:block">
-                        Juridisk
+
+                    <div className="px-5 pb-[76px] md:px-8 md:pb-0">
+                        <div className="mx-auto w-full max-w-[720px]">
+                            {rateLimited ? (
+                                <div className="glass-surface mb-3 rounded-[10px] border border-[var(--color-border-whisper)] bg-[var(--color-surface-card)] px-4 py-3">
+                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                        <p className="font-sans text-sm font-medium text-[var(--color-text-primary)]">
+                                            {nb.errors.rateLimit}
+                                        </p>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={() => void handleUpgrade()}
+                                            className="h-10 border-[var(--color-border-whisper)] bg-transparent font-sans text-[13px] font-medium uppercase tracking-wide text-[var(--color-text-primary)] shadow-none hover:border-[var(--color-border-focus)] hover:bg-[rgba(201,168,76,0.06)] hover:text-[var(--color-text-primary)]"
+                                        >
+                                            {nb.chat.upgradeToPro}
+                                        </Button>
+                                    </div>
+                                </div>
+                            ) : null}
+                            <InputBar
+                                onSend={(message) => void handleSend(message)}
+                                onFileSelected={(file) =>
+                                    void handleFileSelected(file)
+                                }
+                                onClearFile={() => {
+                                    setActiveDocumentId(null);
+                                    setAttachedFileName(null);
+                                }}
+                                isStreaming={isStreaming}
+                                disabled={rateLimited}
+                                attachedFileName={attachedFileName}
+                                uploadRequestId={uploadRequestId}
+                            />
+                            <DisclaimerFooter />
+                        </div>
                     </div>
-                    {activeDocument ? (
-                        <div className="min-w-0 rounded bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700">
-                            <span className="block max-w-40 truncate">
-                                {activeDocument.filename}
-                            </span>
-                        </div>
-                    ) : null}
-                    <button
-                        type="button"
-                        aria-label="Dokumenter"
-                        onClick={() => setDocumentPanelOpen((open) => !open)}
-                        className="ml-auto flex min-h-11 min-w-11 items-center justify-center rounded border border-slate-200 text-slate-700 transition hover:bg-slate-50"
-                    >
-                        <svg
-                            viewBox="0 0 24 24"
-                            className="h-5 w-5"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            aria-hidden="true"
-                        >
-                            <path d="M21 8.5 10.2 19.3a5 5 0 0 1-7.1-7.1L14.3 1" />
-                            <path d="m17 5-11.1 11.1a2 2 0 1 0 2.8 2.8L20 7.7" />
-                        </svg>
-                    </button>
-                </header>
-                <div className="flex-1 overflow-y-auto">
-                    <MessageList
-                        messages={messages}
-                        isStreaming={isStreaming}
-                        streamingContent={streamingContent}
-                    />
-                </div>
-                {documentPanelOpen ? (
-                    <section className="max-h-64 overflow-y-auto border-t border-slate-200 bg-slate-50 p-4">
-                        <div className="grid gap-4 md:grid-cols-2">
-                            <DocumentUpload
-                                onUploadComplete={(document) => {
-                                    setDocuments((previous) => [document, ...previous]);
-                                    setActiveDocumentId(document.id);
-                                    setDocumentPanelOpen(false);
-                                    void fetchDocuments();
-                                }}
-                            />
-                            <DocumentList
-                                documents={documents}
-                                onSelectDocument={(id) => {
-                                    setActiveDocumentId(id);
-                                    setDocumentPanelOpen(false);
-                                }}
-                                activeDocumentId={activeDocumentId}
-                                isLoading={isLoadingDocuments}
-                            />
-                        </div>
-                    </section>
-                ) : null}
-                <div className="border-t border-slate-200">
-                    <ChatInput
-                        onSend={(message) => void handleSend(message)}
-                        isStreaming={isStreaming}
-                        disabled={rateLimited}
-                    />
-                    {rateLimited ? (
-                        <div className="border-t border-amber-200 bg-amber-50 px-4 py-3">
-                            <div className="mx-auto flex max-w-4xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                <p className="text-sm font-medium text-amber-900">
-                                    {nb.errors.rateLimit}
-                                </p>
-                                <button
-                                    type="button"
-                                    onClick={() => router.push("/settings")}
-                                    className="min-h-10 rounded bg-slate-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2"
-                                >
-                                    {nb.chat.upgradeToPro}
-                                </button>
-                            </div>
-                        </div>
-                    ) : null}
-                    <DisclaimerFooter />
-                </div>
+                </main>
             </div>
+
+            {mobileHistoryOpen ? (
+                <div className="fixed inset-x-3 bottom-20 top-3 z-40 md:hidden">
+                    {sidebar}
+                </div>
+            ) : null}
+
+            <nav className="glass-surface fixed inset-x-0 bottom-0 z-50 grid h-16 grid-cols-3 border-t border-[var(--color-border-whisper)] bg-[var(--color-surface-sidebar)] md:hidden">
+                <div className="absolute top-0 left-0 right-0 h-[2px] bg-white/10">
+                    <div 
+                        className="h-full transition-all duration-500"
+                        style={{ 
+                            width: `${Math.min((queriesToday / 10) * 100, 100)}%`,
+                            backgroundColor: queriesToday >= 10 ? "#c94a2a" : queriesToday >= 7 ? "#c97a2a" : "var(--color-accent-gold)"
+                        }}
+                    />
+                </div>
+                <MobileNavButton
+                    label={nb.chat.wordmark}
+                    active={!mobileHistoryOpen}
+                    onClick={() => setMobileHistoryOpen(false)}
+                    icon={<MessageSquare aria-hidden="true" className="size-5" />}
+                />
+                <MobileNavButton
+                    label={nb.chat.history}
+                    active={mobileHistoryOpen}
+                    onClick={() => setMobileHistoryOpen((open) => !open)}
+                    icon={<History aria-hidden="true" className="size-5" />}
+                />
+                <MobileNavButton
+                    label={nb.chat.upload}
+                    active={Boolean(activeDocumentId)}
+                    onClick={() => {
+                        setMobileHistoryOpen(false);
+                        setUploadRequestId((value) => value + 1);
+                    }}
+                    icon={<Upload aria-hidden="true" className="size-5" />}
+                />
+            </nav>
+
             {error ? (
-                <div className="fixed bottom-24 right-4 z-50 max-w-sm rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-sm">
+                <div className="glass-surface fixed bottom-24 right-4 z-50 max-w-sm rounded-lg border border-[var(--color-border-whisper)] bg-[var(--color-surface-card)] px-4 py-3 font-sans text-sm text-[var(--color-text-primary)]">
                     <div className="flex items-start gap-3">
                         <p>{error}</p>
-                        <button
+                        <Button
                             type="button"
+                            variant="ghost"
+                            size="icon-sm"
                             onClick={() => setError(null)}
-                            className="min-h-8 min-w-8 rounded text-red-700 hover:bg-red-100"
-                            aria-label="Lukk feilmelding"
+                            className="min-h-8 min-w-8 rounded text-[var(--color-text-secondary)] hover:bg-white/[0.04] hover:text-[var(--color-accent-gold)]"
+                            aria-label={nb.chat.closePanel}
                         >
-                            ×
-                        </button>
+                            <X aria-hidden="true" className="size-4" />
+                        </Button>
                     </div>
                 </div>
             ) : null}
         </div>
+    );
+}
+
+function MobileNavButton({
+    label,
+    icon,
+    active,
+    onClick,
+}: {
+    label: string;
+    icon: React.ReactNode;
+    active: boolean;
+    onClick: () => void;
+}) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className={cn(
+                "flex flex-col items-center justify-center gap-1 font-sans text-[11px] transition",
+                active
+                    ? "text-[var(--color-accent-gold)]"
+                    : "text-[var(--color-text-secondary)]"
+            )}
+        >
+            {icon}
+            <span>{label}</span>
+        </button>
     );
 }

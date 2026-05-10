@@ -6,8 +6,8 @@
 @theme inline {
     --color-background: var(--background);
     --color-foreground: var(--foreground);
-    --font-sans: var(--font-inter);
-    --font-serif: var(--font-eb-garamond);
+    --font-sans: var(--font-dm-sans);
+    --font-serif: var(--font-dm-serif-display);
     --color-blue: rgb(0, 136, 255);
     --color-blue-50: rgba(0, 136, 255, 0.05);
     --color-blue-100: rgba(0, 136, 255, 0.1);
@@ -51,38 +51,52 @@
 
 :root {
     --radius: 0.625rem;
+    --color-bg-base: #0d0b08;
+    --color-surface-sidebar: rgba(18, 14, 10, 0.72);
+    --color-surface-card: rgba(22, 17, 12, 0.76);
+    --color-surface-input: rgba(10, 8, 6, 0.80);
+    --color-surface-message-user: rgba(13, 10, 7, 0.70);
+    --color-surface-message-ai: rgba(20, 15, 10, 0.74);
+    --color-accent-gold: #c9a84c;
+    --color-accent-gold-dim: rgba(201, 168, 76, 0.15);
+    --color-accent-gold-mid: rgba(201, 168, 76, 0.35);
+    --color-accent-amber: #8b3a0f;
+    --color-text-primary: #f0e6d3;
+    --color-text-secondary: #7a7068;
+    --color-border-whisper: rgba(201, 168, 76, 0.10);
+    --color-border-focus: rgba(201, 168, 76, 0.50);
     --color-azure: 0, 136, 255;
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
+    --background: var(--color-bg-base);
+    --foreground: var(--color-text-primary);
+    --card: var(--color-surface-card);
+    --card-foreground: var(--color-text-primary);
+    --popover: var(--color-surface-card);
+    --popover-foreground: var(--color-text-primary);
+    --primary: var(--color-accent-gold);
+    --primary-foreground: #1a1008;
+    --secondary: var(--color-surface-card);
+    --secondary-foreground: var(--color-text-primary);
+    --muted: var(--color-surface-sidebar);
+    --muted-foreground: var(--color-text-secondary);
+    --accent: var(--color-accent-gold-dim);
+    --accent-foreground: var(--color-text-primary);
     --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
+    --border: var(--color-border-whisper);
+    --input: var(--color-border-whisper);
+    --ring: var(--color-border-focus);
     --chart-1: oklch(0.646 0.222 41.116);
     --chart-2: oklch(0.6 0.118 184.704);
     --chart-3: oklch(0.398 0.07 227.392);
     --chart-4: oklch(0.828 0.189 84.429);
     --chart-5: oklch(0.769 0.188 70.08);
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
+    --sidebar: var(--color-surface-sidebar);
+    --sidebar-foreground: var(--color-text-primary);
+    --sidebar-primary: var(--color-accent-gold);
+    --sidebar-primary-foreground: #1a1008;
+    --sidebar-accent: var(--color-accent-gold-dim);
+    --sidebar-accent-foreground: var(--color-text-primary);
+    --sidebar-border: var(--color-border-whisper);
+    --sidebar-ring: var(--color-border-focus);
 }
 
 .dark {
@@ -124,12 +138,134 @@
         @apply border-border outline-ring/50;
     }
 
+    html {
+        min-height: 100%;
+        background: var(--color-bg-base);
+    }
+
     body {
-        @apply bg-background text-foreground;
+        min-height: 100vh;
+        overflow-x: hidden;
+        background-color: var(--color-bg-base);
+        background-image: url("/nocturne-night.jpg");
+        background-attachment: fixed;
+        background-position: center 20%;
+        background-size: cover;
+        color: var(--color-text-primary);
+        font-family: var(--font-dm-sans);
+        isolation: isolate;
+        position: relative;
+    }
+
+    body::before {
+        content: "";
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        pointer-events: none;
+        background-image: url("/nocturne-night.jpg");
+        background-position: center 20%;
+        background-size: cover;
     }
 
     button {
         cursor: pointer;
+    }
+}
+
+@media (max-width: 767px) {
+    body {
+        background-image: none;
+    }
+
+    body::before {
+        display: block;
+        filter: brightness(0.65);
+    }
+}
+
+.glass-surface {
+    backdrop-filter: blur(14px) saturate(1.4);
+    -webkit-backdrop-filter: blur(14px) saturate(1.4);
+}
+
+.glass-surface-strong {
+    backdrop-filter: blur(16px) saturate(1.5);
+    -webkit-backdrop-filter: blur(16px) saturate(1.5);
+}
+
+.juridisk-markdown {
+    color: var(--color-text-primary);
+    font-size: 15px;
+    line-height: 1.65;
+}
+
+.juridisk-markdown p {
+    margin: 0 0 0.85rem;
+}
+
+.juridisk-markdown p:last-child {
+    margin-bottom: 0;
+}
+
+.juridisk-markdown ul,
+.juridisk-markdown ol {
+    margin: 0.85rem 0;
+    padding-left: 1.25rem;
+}
+
+.juridisk-markdown li {
+    margin: 0.35rem 0;
+}
+
+.juridisk-markdown a {
+    color: var(--color-accent-gold);
+    text-decoration: underline;
+    text-decoration-color: var(--color-accent-gold-mid);
+    text-underline-offset: 3px;
+}
+
+.juridisk-markdown code,
+.juridisk-markdown pre {
+    font-family: var(--font-dm-sans);
+}
+
+.streaming-cursor {
+    animation: juridiskBlink 1s steps(2, start) infinite;
+}
+
+@keyframes attachedFileIn {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes juridiskBlink {
+    0%,
+    45% {
+        opacity: 1;
+    }
+    46%,
+    100% {
+        opacity: 0;
+    }
+}
+
+@keyframes pulse-bar {
+    0% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.4;
+    }
+    100% {
+        opacity: 1;
     }
 }
 
@@ -278,7 +414,7 @@
 
 @layer utilities {
     .font-eb-garamond {
-        font-family: var(--font-eb-garamond);
+        font-family: var(--font-dm-serif-display);
     }
 
     .sidebar-fade-in {
