@@ -210,7 +210,7 @@ answer in the same conversation, so that I can have a real back-and-forth legal 
 - Session persistence (30-day refresh token)
 
 ### Chat Interface
-**Status: Live in production (`ai.fpvetleseter.com`).** Core chat (auth, streaming, conversations) verified end-to-end. Known product bugs tracked in `ROADMAP.md` (SSE truncation, Lovdata injection, duplicate disclaimer).
+**Status: Live in production (`ai.fpvetleseter.com`).** Core chat (auth, streaming, conversations) verified end-to-end. Day 6 follow-up fixes shipped for SSE keep-alive headers/heartbeat, Lovdata retrieval diagnostics, and duplicate assistant disclaimer rendering; live authenticated retest with Railway logs is still pending.
 
 - Free-form legal Q&A (no document required)
 - Streaming AI responses (SSE from `/api/v1/ai/chat`)

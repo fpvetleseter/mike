@@ -577,10 +577,19 @@ curl -N -H "Authorization: Bearer YOUR_JWT" \
   ```
   Adjust the column list if the migration adds non-default columns without defaults.
 
-**Known issues — prioritize at start of Day 6:**
-1. SSE stream cuts off mid-response
-2. Lovdata retrieval not injecting into prompt
-3. Disclaimer rendering twice in chat UI
+**Day 6 production bugfix shipped:**
+1. SSE route hardened in `backend/src/routes/ai.ts` with early SSE headers, `X-Accel-Buffering: no`, `flushHeaders()`, and a 15-second heartbeat.
+2. Lovdata chat diagnostics added in `backend/src/routes/ai.ts` and `backend/src/services/anthropic.ts`: search count and prompt-context length are logged without plaintext user queries.
+3. Duplicate assistant-message disclaimer rendering removed from `frontend/src/components/chat/MessageList.tsx` and `frontend/src/components/chat/MessageBubble.tsx`; the backend-appended per-response disclaimer and persistent footer remain.
+
+**Verification completed after the bugfix:**
+- `npm run build` in `backend/` passes.
+- `npm run build` in `frontend/` passes.
+- Commit `8ec0074` (`fix: SSE stream cutoff, lovdata logging, duplicate disclaimer`) was pushed to `origin/main`.
+- Vercel production deployment for `ai.fpvetleseter.com` reported `Ready`.
+- Railway `/health` returned `200` with `db: "connected"`.
+
+**Still pending:** live authenticated chat retest, Railway log paste, and response screenshot. The local shell did not have Railway CLI/API credentials or an authenticated browser/JWT session.
 
 **Still not production-verified:** document upload pipeline, PDF/DOCX processing on Railway, and document-grounded Q&A against live R2 and embeddings (code exists; live run pending).
 

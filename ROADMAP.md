@@ -4,7 +4,7 @@
 
 **Last updated:** 2026-05-10
 **Phase:** 1 -- MVP
-**Day completed:** 5 live E2E verified for **core chat**; billing UI and Stripe routes build-verified locally (live Stripe E2E still pending)
+**Day completed:** 6 production bugfix shipped for core chat; billing UI and Stripe routes build-verified locally (live Stripe E2E still pending)
 
 ### What is live
 - **Production app:** Core chat works end-to-end at `https://ai.fpvetleseter.com` (auth, conversations, SSE streaming, rate limits).
@@ -13,10 +13,11 @@
 - Cloudflare R2: bucket `juridisk-documents` configured in env template with endpoint `https://79a4bc1dce5114ee00a16a215e658a91.r2.cloudflarestorage.com`
 - Lovdata ingestion: script exists and writes Norwegian law embeddings to `law_chunks`
 
-### Fix at start of Day 6 (production bugs)
-1. SSE stream cuts off mid-response
-2. Lovdata retrieval not injecting into prompt
-3. Disclaimer rendering twice in chat UI
+### Day 6 production bugfix status
+- [DONE] SSE route hardened with `X-Accel-Buffering: no`, early `flushHeaders()`, and 15-second heartbeat comments.
+- [DONE] Lovdata chat path instrumented with search-result count and prompt-context length logging.
+- [DONE] Duplicate assistant-message disclaimer removed from chat renderers; persistent footer disclaimer remains.
+- [PENDING] Live authenticated chat retest with Railway logs and screenshot after redeploy.
 
 ### What the backend can now do (after Day 3 local build)
 - `POST /api/v1/ai/chat` -- authenticated, rate-limited, RAG pipeline, SSE streaming, citations, disclaimer
@@ -320,9 +321,10 @@ cited, streamed response. This is the product's core value. Everything else is i
 ### Day 6 -- Billing and Rate Limiting
 
 **Fix first (production issues from Day 5 live verification):**
-1. SSE stream cuts off mid-response
-2. Lovdata retrieval not injecting into prompt
-3. Disclaimer rendering twice in chat UI
+- [DONE] SSE stream cutoff hardening in `backend/src/routes/ai.ts`.
+- [DONE] Lovdata retrieval diagnostics in `backend/src/routes/ai.ts` and `backend/src/services/anthropic.ts`.
+- [DONE] Duplicate assistant disclaimer removal in chat message renderers.
+- [PENDING] Live authenticated chat retest with Railway logs and screenshot.
 
 **Tasks:**
 
