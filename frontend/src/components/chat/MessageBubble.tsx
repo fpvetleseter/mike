@@ -3,7 +3,6 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import CitationCard from "@/components/chat/CitationCard";
-import { nb } from "@/lib/nb";
 import { cn, safeFormatDate } from "@/lib/utils";
 import type { Message } from "@/types/api";
 
@@ -59,9 +58,6 @@ export default function MessageBubble({
                                 </div>
                             </div>
                         ) : null}
-                        <p className="border-t border-slate-100 pt-2 text-xs italic text-slate-400">
-                            {nb.disclaimer.short}
-                        </p>
                     </div>
                 )}
             </div>

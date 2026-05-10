@@ -1,4 +1,5 @@
 import type { MessageStreamEvent } from "@anthropic-ai/sdk/resources/messages";
+import { createHash } from "crypto";
 import { Router } from "express";
 import { z } from "zod";
 import { createServerSupabase } from "../lib/supabase";
@@ -55,6 +56,7 @@ aiRouter.post(
     let conversationId = req.body.conversationId ?? null;
     const supabase = createServerSupabase();
     let headersFlushed = false;
+    let heartbeat: ReturnType<typeof setInterval> | null = null;
 
     try {
       if (documentId) {
@@ -115,6 +117,10 @@ aiRouter.post(
       if (userMessageError) throw userMessageError;
 
       const queryType = classifyQuery(message);
+      console.log("[lovdata] searching", {
+        messageHash: hashForLog(message),
+        messageLength: message.length,
+      });
       const lovdataPromise = searchLovdata(message, {
         maxResults: TOKEN_BUDGET.MAX_LOVDATA_RESULTS,
         threshold: TOKEN_BUDGET.MIN_LOVDATA_RELEVANCE_SCORE,
@@ -142,6 +148,18 @@ aiRouter.post(
       const lovdataResults = lovdata.results.filter(
         (result) => result.similarity >= TOKEN_BUDGET.MIN_LOVDATA_RELEVANCE_SCORE,
       );
+      console.log("[lovdata] results count:", lovdataResults.length);
+
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+      res.setHeader("X-Accel-Buffering", "no");
+      res.flushHeaders();
+      headersFlushed = true;
+
+      heartbeat = setInterval(() => {
+        res.write(": heartbeat\n\n");
+      }, 15000);
 
       const { stream, getUsage, model, abort } = await streamLegalResponse({
         userMessage: message,
@@ -155,14 +173,9 @@ aiRouter.post(
         userId,
       });
 
-      req.on("close", () => abort());
-
-      res.setHeader("Content-Type", "text/event-stream");
-      res.setHeader("Cache-Control", "no-cache");
-      res.setHeader("Connection", "keep-alive");
-      res.setHeader("X-Accel-Buffering", "no");
-      res.flushHeaders();
-      headersFlushed = true;
+      res.on("close", () => {
+        if (!res.writableEnded) abort();
+      });
 
       let fullContent = "";
       for await (const event of stream) {
@@ -211,6 +224,10 @@ aiRouter.post(
       if (assistantMessageError || !assistantMessage) throw assistantMessageError;
 
       await incrementQueryCount(userId);
+      if (heartbeat) {
+        clearInterval(heartbeat);
+        heartbeat = null;
+      }
       res.write(
         `data: ${JSON.stringify({
           type: "done",
@@ -221,6 +238,10 @@ aiRouter.post(
       res.end();
     } catch (error) {
       console.error("[ai/chat] error", error);
+      if (heartbeat) {
+        clearInterval(heartbeat);
+        heartbeat = null;
+      }
       if (error instanceof Error && error.name === "APIUserAbortError") {
         // Client disconnected mid-stream; stream was already cancelled.
         return;
@@ -330,6 +351,10 @@ function extractCitations(text: string): Citation[] {
 function enforceDisclaimer(content: string): string {
   if (content.includes("ikke juridisk rådgivning")) return content;
   return `${content}\n\n---\n${DISCLAIMER_NB}`;
+}
+
+function hashForLog(value: string): string {
+  return createHash("sha256").update(value).digest("hex").slice(0, 12);
 }
 
 export default aiRouter;

@@ -71,6 +71,7 @@ export async function streamLegalResponse(
   );
 
   const lovdataContext = formatLovdataContext(lovdataResults);
+  console.log("[lovdata] context length:", lovdataContext.length);
   const documentContext =
     compressedChunks.length > 0
       ? `### Dokumentinnhold (utdrag)\n${compressedChunks

@@ -113,9 +113,6 @@ function MessageCard({
                         ) : null}
                     </div>
                     <CitationChips citations={message.citations} />
-                    <p className="font-sans text-xs font-light italic text-[var(--color-text-secondary)]">
-                        {nb.disclaimer.short}
-                    </p>
                 </div>
             )}
         </article>
