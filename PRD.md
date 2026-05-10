@@ -210,7 +210,7 @@ answer in the same conversation, so that I can have a real back-and-forth legal 
 - Session persistence (30-day refresh token)
 
 ### Chat Interface
-**Status: Implemented locally (Iteration 2). Rebuilt with liquid-glass aesthetic.**
+**Status: Live in production (`ai.fpvetleseter.com`).** Core chat (auth, streaming, conversations) verified end-to-end. Known product bugs tracked in `ROADMAP.md` (SSE truncation, Lovdata injection, duplicate disclaimer).
 
 - Free-form legal Q&A (no document required)
 - Streaming AI responses (SSE from `/api/v1/ai/chat`)
@@ -221,7 +221,7 @@ answer in the same conversation, so that I can have a real back-and-forth legal 
 - Fixed tagline readability in empty state
 
 ### Document Management
-**Status: Backend and frontend implemented locally through Day 5. Live E2E verification pending.**
+**Status: Implemented locally; not yet verified live in production.**
 
 - Upload PDF or DOCX (up to 10MB)
 - Processing status display via 3-second polling in Phase 1

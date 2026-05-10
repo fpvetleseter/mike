@@ -4,14 +4,19 @@
 
 **Last updated:** 2026-05-10
 **Phase:** 1 -- MVP
-**Day completed:** 6 (Stripe billing and rate-limit UI implemented and build-verified locally; live Stripe E2E pending)
+**Day completed:** 5 live E2E verified for **core chat**; billing UI and Stripe routes build-verified locally (live Stripe E2E still pending)
 
 ### What is live
+- **Production app:** Core chat works end-to-end at `https://ai.fpvetleseter.com` (auth, conversations, SSE streaming, rate limits).
+- **Production backend:** Railway at `https://mike-production-bc69.up.railway.app`.
 - Supabase: eu-west-1, pgvector enabled, Phase 1 tables migrated with RLS per Day 1/2 notes
-- Railway: backend deployment exists per project context; health check URL was not verified in this session
-- Vercel: frontend is expected at fpvetleseter.com/juridisk; Day 4 chat UI is implemented locally
 - Cloudflare R2: bucket `juridisk-documents` configured in env template with endpoint `https://79a4bc1dce5114ee00a16a215e658a91.r2.cloudflarestorage.com`
 - Lovdata ingestion: script exists and writes Norwegian law embeddings to `law_chunks`
+
+### Fix at start of Day 6 (production bugs)
+1. SSE stream cuts off mid-response
+2. Lovdata retrieval not injecting into prompt
+3. Disclaimer rendering twice in chat UI
 
 ### What the backend can now do (after Day 3 local build)
 - `POST /api/v1/ai/chat` -- authenticated, rate-limited, RAG pipeline, SSE streaming, citations, disclaimer
@@ -25,7 +30,7 @@
 - Landing page and onboarding (Day 7)
 - Document risk analysis -- two-pass pipeline (Phase 2)
 - Drafting agent (Phase 2)
-- Live Day 3 Definition of Done checks with real Supabase JWT, Anthropic, OpenAI, R2, and Railway logs
+- Live document upload and document-grounded Q&A verification (implemented locally; not yet proven against production)
 - Live Day 6 Stripe Checkout, Portal, and webhook verification with real Stripe dashboard credentials
 
 ### Current Build State (after Day 6 UI Iteration 3)
@@ -45,10 +50,9 @@ Conversation list empty state: FileText icon at 35% opacity + Paperclip inline h
 All Norwegian strings routed through `nb.sidebar.*` in `frontend/src/lib/nb.ts`.
 Frontend `npm run build` passes locally.
 
-> Note: Live Railway/Supabase verification is still pending. `supabase db push` could not run in
-> this checkout because the Supabase CLI reported no linked project ref.
-> Live Stripe verification also remains pending until Railway has `STRIPE_SECRET_KEY`,
-> `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRO_PRICE_ID`, and the deployed webhook endpoint configured.
+> Note: Core chat is verified live against production. `supabase db push` may still be unavailable in
+> unlinked local checkouts. Live Stripe verification remains pending until Railway has
+> `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRO_PRICE_ID`, and the deployed webhook endpoint configured.
 
 **Format:** Phases, not time-boxes. Each phase has a definition of done. Phase 1 is broken into
 day-level tasks. Phases 2 and 3 are task-level but not day-level (scope will be clearer after
@@ -303,15 +307,22 @@ cited, streamed response. This is the product's core value. Everything else is i
       > Note: Implemented in `frontend/src/components/documents/DocumentUpload.tsx`; live upload verification is pending credentials.
 - [x] Build document library sidebar: list with status badges, Supabase Realtime status updates
       > Note: Phase 1 uses 3-second polling through `GET /api/v1/documents`; Supabase Realtime is deferred to Phase 2.
+- [x] Live E2E (production): core chat — sign in, new conversation, streamed answer, persistence
+      at `https://ai.fpvetleseter.com` against Railway `mike-production-bc69.up.railway.app`
+      > Note: **Day 5 live E2E verification** marked complete for this scope. Production bugs listed under *Fix at start of Day 6*.
 - [ ] Test: upload a PDF employment contract, ask "hva er oppsigelsestiden?", verify the
-      response references the specific contract clauses
-      > Note: live E2E test deferred -- requires linked Supabase project, Railway deploy logs, and a valid Supabase JWT.
+      response references the specific contract clauses (production — not yet verified)
 
 **Deliverable:** Document upload, processing, and Q&A working end-to-end.
 
 ---
 
 ### Day 6 -- Billing and Rate Limiting
+
+**Fix first (production issues from Day 5 live verification):**
+1. SSE stream cuts off mid-response
+2. Lovdata retrieval not injecting into prompt
+3. Disclaimer rendering twice in chat UI
 
 **Tasks:**
 

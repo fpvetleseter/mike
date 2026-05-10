@@ -13,10 +13,10 @@
 
 | Agent | Status | Notes |
 |---|---|---|
-| Legal Assistant Agent | Implemented locally; iteration 2 UI complete | System prompt v1.0.0 lives in `backend/src/proprietary/prompts/legal-assistant.ts`; `/api/v1/ai/chat` streams SSE; UI rebuilt with liquid-glass aesthetic |
+| Legal Assistant Agent | LIVE in production | System prompt v1.0.0 lives in `backend/src/proprietary/prompts/legal-assistant.ts`; `/api/v1/ai/chat` streams SSE; UI at `ai.fpvetleseter.com` |
 | Document Analysis Agent | Not started | Phase 2 -- two-pass Haiku + Sonnet pipeline |
 | Drafting Agent | Not started | Phase 2 |
-| Lovdata Retrieval Service | Implemented locally; runtime verification pending | Queries `law_chunks` via pgvector RPC using cosine similarity; drops results below 0.70 before injection |
+| Lovdata Retrieval Service | Deployed but not injecting (bug) | Queries `law_chunks` via pgvector RPC using cosine similarity; drops results below 0.70 before injection — **prompt injection broken in production; fix at start of Day 6** |
 | Document Context Extraction | Implemented and build-verified locally | Queries `document_chunks` through `match_document_chunks`, scoped to `user_id` and `document_id`; Haiku compression and summary cache are implemented |
 | Rate Limit Middleware | Implemented locally | 10 queries/day free tier, enforced server-side before AI route; frontend visually enforces limit with green→red progress bar, usage-gated upgrade CTA at 6/10, and disabled input + upgrade prompt at 10/10 (triggered by backend 429 response) |
 | Billing and Entitlement Service | Implemented and build-verified locally | Stripe Checkout, Customer Portal, and signed webhook entitlement updates live in `backend/src/routes/billing.ts` and `backend/src/routes/webhooks.ts`; upgrade card wired in UI |

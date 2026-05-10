@@ -558,7 +558,31 @@ curl -N -H "Authorization: Bearer YOUR_JWT" \
 - Cost logger: every completed AI stream logs `estimated_cost_usd`, cache read/write token metadata, query type, document-context flag, and compression savings.
 - LibreOffice: `backend/nixpacks.toml` and `backend/Dockerfile` both exist in `backend/`; Nixpacks should be tried first.
 - Migration status: `supabase/migrations/005_document_summary.sql` and `006_document_chunk_search.sql` exist, but `supabase db push` was not applied locally because the checkout is not linked to a Supabase project ref.
-- Live E2E status: Railway health, PDF upload, summary completion, SSE document question, cache-hit logs, and rate-limit exhaustion still need a real JWT and deployed environment verification.
+
+### After Day 5 live verification
+
+**Production URLs:**
+- Frontend: `https://ai.fpvetleseter.com`
+- Backend (Railway): `https://mike-production-bc69.up.railway.app`
+
+**Confirmed in production:**
+- Core chat path: sign-in, create/list conversations, stream assistant replies over SSE, persist messages (end-to-end verified).
+
+**Profiles row requirement:**
+- Backend features that read `public.profiles` (rate limits, tier, usage) assume a profile row exists for every `auth.users` id. The `on_auth_user_created` trigger creates profiles for new sign-ups, but it predates some test accounts. Backfill safely with:
+  ```sql
+  insert into public.profiles (id, email)
+  select id, email from auth.users
+  on conflict (id) do nothing;
+  ```
+  Adjust the column list if the migration adds non-default columns without defaults.
+
+**Known issues — prioritize at start of Day 6:**
+1. SSE stream cuts off mid-response
+2. Lovdata retrieval not injecting into prompt
+3. Disclaimer rendering twice in chat UI
+
+**Still not production-verified:** document upload pipeline, PDF/DOCX processing on Railway, and document-grounded Q&A against live R2 and embeddings (code exists; live run pending).
 
 ### After Day 6
 
