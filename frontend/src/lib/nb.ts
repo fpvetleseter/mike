@@ -89,17 +89,14 @@ export const nb = {
         maxSize: "Maks 10 MB",
     },
     sidebar: {
+        newConversation: "Ny samtale",
         queriesUsed: (used: number, total: number) =>
-            `${used} av ${total} spørsmål brukt i dag`,
-        ambientCopy: "Spør om alt innen norsk rett.",
-        upgradeTitle: "Juridisk Pro",
-        upgradeSubtitle: "Ubegrenset tilgang, alltid.",
-        upgradeButton: "Oppgrader nå",
-        limitReached: "Du har brukt alle dagens spørsmål.",
+            `${used} av ${total} spørsmål i dag`,
+        upgradeLink: "Oppgrader til Pro",
+        conversations: "Samtaler",
         noConversations: "Ingen samtaler ennå.",
         noConversationsHint: "Last opp en kontrakt for å komme i gang.",
-        newConversation: "Ny samtale",
+        userProSuffix: "Pro",
         inputDisabledPlaceholder: "Oppgrader til Pro for å fortsette.",
-        billingNotReady: "Betalingsløsning er ikke klar ennå.",
     },
 };

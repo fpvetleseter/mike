@@ -34,19 +34,15 @@
 - Live document upload and document-grounded Q&A verification (implemented locally; not yet proven against production)
 - Live Day 6 Stripe Checkout, Portal, and webhook verification with real Stripe dashboard credentials
 
-### Current Build State (after Day 6 UI Iteration 3)
-Sidebar glass is fixed: `SidebarRoot` uses inline `style` with `background: rgba(18,14,10,0.68)`,
-`backdropFilter: "blur(16px) saturate(1.5)"`, and `-webkit-backdrop-filter` explicitly set.
-`isolation: isolate` is applied on the sidebar element. Any parent wrapper must not set a solid
-background or the backdrop-filter will not composite against the painting.
+### Current Build State (after Day 6 UI Iteration 4)
+Sidebar rebuilt as a pure list-based layout — no card components, no borders on individual elements, no backdrop-filter inside the sidebar shell. Only `SidebarRoot` carries the glass treatment.
 
-Progress bar (Zone 2): 4px height, green (#4a9e6b) → amber (#c9922a, 6+) → deep orange (#c96a2a, 8+) → red (#c93a2a, 10). Width and color transition via `transition: width 600ms ease-out, background-color 400ms ease`. At 10/10 the bar pulses once via `pulse-bar` keyframe.
+Five zones: (1) wordmark only, (2) "Ny samtale" icon+text row, (3) 3px progress bar + counter + optional plain-text upgrade link at 6/10+ (free only), (4) conversation list with "Samtaler" section label and simple text rows, (5) footer with avatar, email prefix, optional "· Pro" suffix, logout icon.
 
-Upgrade card (Zone 2b): conditional on tier=free. Shows ambient copy "Spør om alt innen norsk rett." at 0-5 queries. Fades in (opacity 0→1, translateY 4px→0, 300ms) at 6+ queries. Fully visible + pulsing border at 10/10. Glass surface: `rgba(201,168,76,0.07)` tint, `1px solid rgba(201,168,76,0.28)` border, `backdrop-filter: blur(10px)`. No solid backgrounds. Wired to `POST /api/v1/billing/checkout`.
-
-New Conversation button: glass ghost button with Plus icon. Not uppercase.
-User footer: initials avatar (28px circle, gold border), email truncated to 22 chars, LogOut icon.
-Conversation list empty state: FileText icon at 35% opacity + Paperclip inline hint.
+Upgrade CTA is a plain `<button>` with `background: none; border: none` — no card, no fill, no border.
+Progress bar: 3px height, same green→amber→red color steps, `pulse-bar` at 10/10.
+Conversation items: `py-[6px] px-5`, `opacity-75` default, `opacity-90` hover, `opacity-100` + `bg-white/[0.08]` active.
+Footer rule: `rgba(255,255,255,0.06)` — not gold.
 
 All Norwegian strings routed through `nb.sidebar.*` in `frontend/src/lib/nb.ts`.
 Frontend `npm run build` passes locally.

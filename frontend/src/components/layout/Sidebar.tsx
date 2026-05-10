@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { FileText, LogOut, Paperclip, Plus } from "lucide-react";
 
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -11,7 +10,7 @@ import {
     SidebarHeader,
 } from "@/components/ui/sidebar";
 import { nb } from "@/lib/nb";
-import { cn, safeFormatDate } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import type { Conversation } from "@/types/api";
 
 interface JuridiskSidebarProps {
@@ -34,21 +33,6 @@ function getBarColor(queriesUsed: number): string {
     return "#4a9e6b";
 }
 
-function formatDate(dateString: string): string {
-    const fallback = safeFormatDate(dateString);
-    if (!fallback) return "";
-
-    const date = new Date(dateString);
-    const today = new Date();
-    const yesterday = new Date();
-    yesterday.setDate(today.getDate() - 1);
-
-    if (date.toDateString() === today.toDateString()) return nb.chat.today;
-    if (date.toDateString() === yesterday.toDateString()) return nb.chat.yesterday;
-
-    return fallback;
-}
-
 function conversationTitle(conversation: Conversation): string {
     return conversation.title?.trim() || nb.chat.newConversation;
 }
@@ -68,20 +52,18 @@ export default function Sidebar({
     const queriesUsed = Math.min(queriesToday, 10);
     const usagePercent = (queriesUsed / 10) * 100;
     const isAtLimit = queriesUsed >= 10;
-    const showUpgradeCard = tier === "free" && queriesUsed >= 6;
-    const showAmbientCopy = tier === "free" && queriesUsed < 6;
+    const showUpgradeLink = tier === "free" && queriesUsed >= 6;
 
-    const [cardVisible, setCardVisible] = useState(false);
-    useEffect(() => {
-        if (showUpgradeCard) {
-            const t = window.setTimeout(() => setCardVisible(true), 40);
-            return () => window.clearTimeout(t);
-        }
-    }, [showUpgradeCard]);
-
-    const avatarInitial = userEmail ? userEmail[0].toUpperCase() : "?";
-    const truncatedEmail =
-        userEmail.length > 22 ? userEmail.slice(0, 22) + "…" : userEmail;
+    const emailPrefix = userEmail.includes("@")
+        ? userEmail.split("@")[0]
+        : userEmail;
+    const displayName =
+        emailPrefix.length > 20 ? emailPrefix.slice(0, 20) + "…" : emailPrefix;
+    const avatarInitial = emailPrefix ? emailPrefix[0].toUpperCase() : "?";
+    const footerLabel =
+        tier === "pro"
+            ? `${displayName} · ${nb.sidebar.userProSuffix}`
+            : displayName;
 
     return (
         <SidebarRoot
@@ -94,151 +76,131 @@ export default function Sidebar({
             }}
         >
             {/* Zone 1 — Wordmark */}
-            <SidebarHeader className="h-[72px] flex-col justify-center px-6">
+            <SidebarHeader className="h-[72px] flex-col justify-center px-5">
                 <span className="font-serif text-[20px] font-normal leading-none text-[var(--color-text-primary)]">
                     {nb.chat.wordmark}
                 </span>
-                <div
-                    style={{
-                        width: 28,
-                        height: 2,
-                        background: "rgba(201, 168, 76, 0.60)",
-                        marginTop: 8,
-                    }}
-                />
             </SidebarHeader>
-            <div className="h-px w-full bg-[var(--color-border-whisper)]" />
 
             <SidebarContent>
-                {/* Zone 2 — Usage */}
-                <div className="px-4 pb-2 pt-3">
-                    <p
-                        className="mb-1.5 font-sans text-[11px] text-[var(--color-text-secondary)]"
-                        style={{ paddingBottom: 6 }}
-                    >
-                        {nb.sidebar.queriesUsed(queriesUsed, 10)}
-                    </p>
-                    <div
-                        style={{
-                            height: 4,
-                            borderRadius: 999,
-                            background: "rgba(255, 255, 255, 0.07)",
-                        }}
-                    >
-                        <div
-                            style={{
-                                height: "100%",
-                                borderRadius: 999,
-                                width: `${usagePercent}%`,
-                                backgroundColor: getBarColor(queriesUsed),
-                                transition:
-                                    "width 600ms ease-out, background-color 400ms ease",
-                                animation: isAtLimit
-                                    ? "pulse-bar 700ms ease-in-out forwards"
-                                    : "none",
-                            }}
-                        />
-                    </div>
-                </div>
+                {/* Zone 2 — New conversation row */}
+                <button
+                    type="button"
+                    onClick={onNewConversation}
+                    className="group flex w-full items-center gap-[10px] rounded-[6px] px-5 py-2 text-left transition-colors duration-[120ms] hover:bg-white/[0.05]"
+                >
+                    <Plus
+                        size={15}
+                        className="text-[var(--color-text-secondary)] transition-colors duration-[120ms] group-hover:text-[var(--color-text-primary)]"
+                    />
+                    <span className="font-sans text-[14px] font-normal text-[var(--color-text-primary)]">
+                        {nb.sidebar.newConversation}
+                    </span>
+                </button>
+                <div style={{ height: 16 }} />
 
-                {/* Zone 2b — Ambient copy or upgrade card */}
-                <div className="px-3 pb-2 pt-1">
-                    {showAmbientCopy && (
-                        <p
-                            className="px-1 font-sans text-[11px] font-light italic text-[var(--color-text-secondary)]"
-                            style={{ opacity: 0.5 }}
-                        >
-                            {nb.sidebar.ambientCopy}
-                        </p>
-                    )}
-                    {showUpgradeCard && (
-                        <div
-                            className="flex flex-col gap-3 rounded-[10px] p-[14px]"
-                            style={{
-                                background: "rgba(201, 168, 76, 0.07)",
-                                border: "1px solid rgba(201, 168, 76, 0.28)",
-                                backdropFilter: "blur(10px)",
-                                WebkitBackdropFilter: "blur(10px)",
-                                opacity: cardVisible ? 1 : 0,
-                                transform: cardVisible
-                                    ? "translateY(0)"
-                                    : "translateY(4px)",
-                                transition:
-                                    "opacity 300ms ease-out, transform 300ms ease-out",
-                                animation: isAtLimit
-                                    ? "pulse-bar 700ms ease-in-out forwards"
-                                    : undefined,
-                            }}
-                        >
-                            <div className="flex flex-col gap-1">
-                                <p className="font-sans text-[13px] font-medium text-[var(--color-accent-gold)]">
-                                    {nb.sidebar.upgradeTitle}
-                                </p>
-                                <p className="font-sans text-[11px] font-light text-[var(--color-text-secondary)]">
-                                    {nb.sidebar.upgradeSubtitle}
-                                </p>
+                {/* Zone 3 — Usage row (free users only) */}
+                {tier === "free" && (
+                    <>
+                        <div className="px-5 py-2">
+                            <div
+                                style={{
+                                    height: 3,
+                                    borderRadius: 999,
+                                    background: "rgba(255, 255, 255, 0.07)",
+                                }}
+                            >
+                                <div
+                                    style={{
+                                        height: "100%",
+                                        borderRadius: 999,
+                                        width: `${usagePercent}%`,
+                                        backgroundColor: getBarColor(queriesUsed),
+                                        transition:
+                                            "width 600ms ease-out, background-color 400ms ease",
+                                        animation: isAtLimit
+                                            ? "pulse-bar 700ms ease-in-out forwards"
+                                            : "none",
+                                    }}
+                                />
                             </div>
-                            <UpgradeButton onClick={onUpgrade} />
-                            {isAtLimit && (
-                                <p className="font-sans text-[11px] text-[var(--color-text-secondary)]">
-                                    {nb.sidebar.limitReached}
-                                </p>
+                            <p
+                                className="font-sans text-[11px] text-[var(--color-text-secondary)]"
+                                style={{ marginTop: 5 }}
+                            >
+                                {nb.sidebar.queriesUsed(queriesUsed, 10)}
+                            </p>
+                            {showUpgradeLink && (
+                                <button
+                                    type="button"
+                                    onClick={onUpgrade}
+                                    className="mt-[6px] font-sans text-[11px] text-[var(--color-accent-gold)] underline-offset-2 transition-opacity duration-[120ms] hover:opacity-80 hover:underline"
+                                    style={{
+                                        opacity: isAtLimit ? 1 : 0.9,
+                                        background: "none",
+                                        border: "none",
+                                        padding: 0,
+                                    }}
+                                >
+                                    {nb.sidebar.upgradeLink}
+                                </button>
                             )}
                         </div>
-                    )}
-                </div>
-
-                {/* Zone 3 — New conversation */}
-                <div className="px-3">
-                    <NewConversationButton onClick={onNewConversation} />
-                </div>
-                <div className="my-[10px] h-px w-full bg-[var(--color-border-whisper)]" />
+                        <div style={{ height: 16 }} />
+                    </>
+                )}
 
                 {/* Zone 4 — Conversation list */}
                 <div className="min-h-0 flex-1">
                     <ScrollArea className="h-full">
                         {isLoading ? (
-                            <div className="flex flex-col gap-2 px-4 py-2">
+                            <div className="flex flex-col gap-2 px-5 py-2">
                                 {Array.from({ length: 5 }).map((_, i) => (
                                     <div
                                         key={i}
-                                        className="h-12 w-full animate-pulse rounded-md bg-white/5"
+                                        className="h-8 w-full animate-pulse rounded-md bg-white/5"
                                     />
                                 ))}
                             </div>
                         ) : conversations.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center gap-[10px] px-6 py-8 text-center">
+                            <div className="flex flex-col px-5 py-4">
                                 <FileText
-                                    className="size-[22px]"
+                                    size={16}
                                     style={{
                                         color: "var(--color-text-secondary)",
-                                        opacity: 0.35,
+                                        opacity: 0.3,
+                                        marginBottom: 8,
                                     }}
                                 />
-                                <div>
-                                    <p
-                                        className="font-sans text-[13px] text-[var(--color-text-secondary)]"
-                                        style={{ opacity: 0.6 }}
-                                    >
-                                        {nb.sidebar.noConversations}
-                                    </p>
-                                    <p
-                                        className="mt-1.5 flex items-center justify-center gap-1 font-sans text-[12px] font-light text-[var(--color-text-secondary)]"
-                                        style={{ opacity: 0.55 }}
-                                    >
-                                        <Paperclip
-                                            className="inline size-3"
-                                            style={{
-                                                color: "var(--color-accent-gold)",
-                                                opacity: 0.7,
-                                            }}
-                                        />
-                                        {nb.sidebar.noConversationsHint}
-                                    </p>
-                                </div>
+                                <p
+                                    className="font-sans text-[12px] text-[var(--color-text-secondary)]"
+                                    style={{ opacity: 0.5 }}
+                                >
+                                    {nb.sidebar.noConversations}
+                                </p>
+                                <p
+                                    className="mt-1 flex items-center gap-1 font-sans text-[11px] font-light text-[var(--color-text-secondary)]"
+                                    style={{ opacity: 0.45 }}
+                                >
+                                    <Paperclip
+                                        size={11}
+                                        style={{
+                                            color: "var(--color-accent-gold)",
+                                            opacity: 0.6,
+                                            flexShrink: 0,
+                                        }}
+                                    />
+                                    {nb.sidebar.noConversationsHint}
+                                </p>
                             </div>
                         ) : (
                             <div className="flex flex-col">
+                                <p
+                                    className="mb-1 font-sans text-[10px] font-medium uppercase tracking-widest text-[var(--color-text-secondary)]"
+                                    style={{ opacity: 0.5, padding: "0 20px" }}
+                                >
+                                    {nb.sidebar.conversations}
+                                </p>
                                 {conversations.map((conversation) => {
                                     const active =
                                         activeConversationId === conversation.id;
@@ -247,20 +209,18 @@ export default function Sidebar({
                                             key={conversation.id}
                                             type="button"
                                             onClick={() =>
-                                                onSelectConversation(conversation.id)
+                                                onSelectConversation(
+                                                    conversation.id
+                                                )
                                             }
                                             className={cn(
-                                                "relative flex flex-col gap-0.5 px-4 py-3 text-left transition-colors duration-[120ms] hover:bg-white/[0.04]",
-                                                active && "bg-[rgba(201,168,76,0.07)]"
+                                                "w-full rounded-[6px] px-5 py-[6px] text-left font-sans text-[13px] font-normal text-[var(--color-text-primary)] transition-all duration-[120ms]",
+                                                active
+                                                    ? "bg-white/[0.08] opacity-100"
+                                                    : "opacity-75 hover:bg-white/[0.05] hover:opacity-90"
                                             )}
                                         >
-                                            {active && (
-                                                <div className="absolute left-0 top-0 h-full w-[2px] bg-[var(--color-accent-gold)]" />
-                                            )}
-                                            <span className="text-right font-sans text-[10px] text-[var(--color-text-secondary)]">
-                                                {formatDate(conversation.updated_at)}
-                                            </span>
-                                            <span className="truncate font-sans text-[13px] text-[var(--color-text-primary)]">
+                                            <span className="block truncate">
                                                 {conversationTitle(conversation)}
                                             </span>
                                         </button>
@@ -273,91 +233,40 @@ export default function Sidebar({
             </SidebarContent>
 
             {/* Zone 5 — User footer */}
-            <div className="h-px w-full bg-[var(--color-border-whisper)]" />
+            <div
+                style={{
+                    height: 1,
+                    background: "rgba(255, 255, 255, 0.06)",
+                }}
+            />
             <SidebarFooter className="h-[56px] justify-center p-0">
-                <div className="group flex h-full w-full items-center justify-between px-4 transition-colors duration-[120ms] hover:bg-white/[0.03]">
-                    <div className="flex items-center gap-[10px]">
+                <div className="flex h-full w-full items-center justify-between px-4">
+                    <div className="flex min-w-0 items-center gap-2">
                         <div
-                            className="flex size-7 shrink-0 items-center justify-center rounded-full"
+                            className="flex size-[26px] shrink-0 items-center justify-center rounded-full"
                             style={{
-                                background: "rgba(13, 10, 7, 0.80)",
-                                border: "1px solid rgba(201, 168, 76, 0.5)",
+                                background: "rgba(13, 10, 7, 0.90)",
+                                border: "1px solid rgba(201, 168, 76, 0.4)",
                             }}
                         >
-                            <span className="font-sans text-[12px] font-medium text-[var(--color-accent-gold)]">
+                            <span className="font-sans text-[11px] font-medium text-[var(--color-accent-gold)]">
                                 {avatarInitial}
                             </span>
                         </div>
-                        <p className="font-sans text-[11px] text-[var(--color-text-secondary)]">
-                            {truncatedEmail}
-                        </p>
+                        <span className="min-w-0 truncate font-sans text-[12px] text-[var(--color-text-primary)]">
+                            {footerLabel}
+                        </span>
                     </div>
                     <button
                         type="button"
                         onClick={onLogout}
-                        className="text-[var(--color-text-secondary)] transition-colors duration-[120ms] hover:text-[var(--color-text-primary)]"
+                        className="ml-2 shrink-0 text-[var(--color-text-secondary)] transition-colors duration-[120ms] hover:text-[var(--color-text-primary)]"
                         aria-label={nb.chat.logout}
                     >
-                        <LogOut className="size-[14px]" />
+                        <LogOut size={13} />
                     </button>
                 </div>
             </SidebarFooter>
         </SidebarRoot>
-    );
-}
-
-function UpgradeButton({ onClick }: { onClick: () => void }) {
-    const [hovered, setHovered] = useState(false);
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
-            className="w-full rounded-[6px] py-2 font-sans text-[12px] font-medium uppercase tracking-wide text-[var(--color-accent-gold)]"
-            style={{
-                background: hovered ? "rgba(201, 168, 76, 0.10)" : "transparent",
-                border: hovered
-                    ? "1px solid rgba(201, 168, 76, 0.80)"
-                    : "1px solid rgba(201, 168, 76, 0.50)",
-                transition: "background 150ms, border-color 150ms",
-            }}
-        >
-            {nb.sidebar.upgradeButton}
-        </button>
-    );
-}
-
-function NewConversationButton({ onClick }: { onClick: () => void }) {
-    const [hovered, setHovered] = useState(false);
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
-            className="flex w-full items-center gap-2 rounded-[8px] px-4 py-[10px] font-sans text-[13px] text-[var(--color-text-primary)]"
-            style={{
-                background: "rgba(255, 255, 255, 0.04)",
-                border: hovered
-                    ? "1px solid var(--color-border-focus)"
-                    : "1px solid var(--color-border-whisper)",
-                backgroundColor: hovered
-                    ? "rgba(201, 168, 76, 0.06)"
-                    : "rgba(255, 255, 255, 0.04)",
-                transition: "background-color 150ms, border-color 150ms",
-            }}
-        >
-            <Plus
-                className="size-[14px]"
-                style={{
-                    color: hovered
-                        ? "var(--color-accent-gold)"
-                        : "var(--color-text-secondary)",
-                    transition: "color 150ms",
-                }}
-            />
-            {nb.sidebar.newConversation}
-        </button>
     );
 }

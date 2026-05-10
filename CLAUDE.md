@@ -671,3 +671,38 @@ curl -N -H "Authorization: Bearer YOUR_JWT" \
 - `POST /api/v1/billing/checkout` requires Railway deploy with Stripe env vars.
 - Input disabled state at initial 10/10 load requires ChatLayout to also check `queriesToday >= 10`
   prop (currently only disabled on 429 response). Not yet implemented — tracked as known gap.
+
+### After Day 6 UI (Iteration 4)
+
+**Sidebar is now a pure list-based layout. No card components anywhere.**
+
+Any future addition to the sidebar must follow this pattern:
+- Text rows with spacing — no borders, no card containers, no backdrop-filter on individual elements.
+- The upgrade CTA is always a plain text link (`<button>` with `background: none; border: none; padding: 0`), never a component with a border or fill.
+- Only the `SidebarRoot` shell may have the glass treatment (`rgba(18, 14, 10, 0.68)` + `backdropFilter`).
+
+**What was removed from iteration 3:**
+- Amber/gold upgrade card box (border, backdrop-filter, card background).
+- "DAGENS BRUK" section label.
+- Right-aligned date on conversation items.
+- Full-width divider rules between zones (only one rule remains above the footer: `rgba(255,255,255,0.06)`).
+- Outlined "NY SAMTALE" button — replaced with a plain icon+text row.
+- `ambientCopy`, `upgradeTitle`, `upgradeSubtitle`, `upgradeButton`, `limitReached`, `billingNotReady` from `nb.sidebar`.
+- `formatDate` helper and `useState` import (no hover state needed — CSS hover via Tailwind).
+
+**New zone layout:**
+- Zone 1 (72px): Wordmark only — "Juridisk" in DM Serif Display 20px. No gold bar below.
+- Zone 2: Plus icon + "Ny samtale" text row. Hover: `rgba(255,255,255,0.05)` bg, border-radius 6px.
+- Zone 3 (free users only): 3px progress bar + "X av 10 spørsmål i dag" + optional "Oppgrader til Pro" text link at 6/10+.
+- Zone 4: ScrollArea conversation list with "Samtaler" section label (10px, uppercase, 50% opacity). Items: full-width, `py-[6px] px-5`, active = `bg-white/[0.08] opacity-100`, hover = `bg-white/[0.05] opacity-90`, default = `opacity-75`.
+- Zone 5 (56px footer): 1px rule `rgba(255,255,255,0.06)`, avatar (26px, gold border), email prefix (max 20 chars), "· Pro" suffix for pro users, LogOut icon.
+
+**`nb.sidebar` after this iteration:**
+```typescript
+sidebar: {
+  newConversation, queriesUsed (fn), upgradeLink, conversations,
+  noConversations, noConversationsHint, userProSuffix, inputDisabledPlaceholder
+}
+```
+
+`frontend/npm run build` passes.
