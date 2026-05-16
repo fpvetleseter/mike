@@ -20,11 +20,7 @@ export const metadata: Metadata = {
     title: "Juridisk",
     description: "AI-drevet juridisk assistent for norske gründere.",
     icons: {
-        icon: [
-            { url: "/icon.svg", type: "image/svg+xml" },
-            { url: "/favicon.ico" },
-        ],
-        apple: "/apple-touch-icon.png",
+        icon: { url: "/favicon.svg", type: "image/svg+xml" },
     },
 };
 
