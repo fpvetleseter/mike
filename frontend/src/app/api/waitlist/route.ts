@@ -15,6 +15,12 @@ function isValidEmail(email: string): boolean {
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
     try {
+        console.log("[waitlist] env check:", {
+            hasToken: !!AIRTABLE_API_TOKEN,
+            hasBaseId: !!AIRTABLE_BASE_ID,
+            hasTableId: !!AIRTABLE_TABLE_ID,
+        });
+
         const body = (await req.json()) as { email?: unknown };
         const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
 
@@ -45,7 +51,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         );
 
         if (!airtableRes.ok) {
-            const errBody = await airtableRes.json().catch(() => ({}));
+            const responseText = await airtableRes.text();
+            console.error("[waitlist] Airtable response:", airtableRes.status, responseText);
+
+            let errBody: unknown = {};
+            try {
+                errBody = JSON.parse(responseText) as unknown;
+            } catch {
+                errBody = { raw: responseText };
+            }
+
             const errMsg = JSON.stringify(errBody);
 
             // Airtable returns 422 with INVALID_VALUE_FOR_COLUMN for duplicate
@@ -68,7 +83,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 }
 
-// Only POST is allowed
 export async function GET(): Promise<NextResponse> {
-    return NextResponse.json({ error: "method_not_allowed" }, { status: 405 });
+    return NextResponse.json({
+        hasToken: !!process.env.AIRTABLE_API_TOKEN,
+        hasBaseId: !!process.env.AIRTABLE_BASE_ID,
+        hasTableId: !!process.env.AIRTABLE_TABLE_ID,
+    });
 }
