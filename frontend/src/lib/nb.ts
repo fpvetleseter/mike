@@ -99,4 +99,21 @@ export const nb = {
         userProSuffix: "Pro",
         inputDisabledPlaceholder: "Oppgrader til Pro for å fortsette.",
     },
+    landing: {
+        wordmark: "Paragraf",
+        tagline: "Din juridiske rådgiver. Alltid tilgjengelig.",
+        subline:
+            "AI-drevet juridisk hjelp for norske gründere og bedrifter. Kom deg videre - uten å vente på advokat.",
+        emailPlaceholder: "din@epost.no",
+        ctaButton: "Bli med på ventelisten",
+        ctaLoading: "Sender...",
+        successHeadline: "Du er på listen.",
+        successBody: "Vi gir deg beskjed når Paragraf åpner.",
+        errorGeneric: "Noe gikk galt. Prøv igjen.",
+        errorInvalidEmail: "Skriv inn en gyldig e-postadresse.",
+        errorAlreadySignedUp: "Denne e-postadressen er allerede registrert.",
+        loginButton: "Logg inn",
+        disclaimer:
+            "Paragraf erstatter ikke en advokat. Tjenesten gir juridisk informasjon, ikke juridisk rådgivning.",
+    },
 };

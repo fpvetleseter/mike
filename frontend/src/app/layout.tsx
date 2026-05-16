@@ -13,6 +13,7 @@ const dmSerifDisplay = DM_Serif_Display({
     variable: "--font-dm-serif-display",
     subsets: ["latin"],
     weight: "400",
+    display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -36,6 +37,7 @@ export default function RootLayout({
         <html lang="nb">
             <body
                 className={`${dmSans.variable} ${dmSerifDisplay.variable} font-sans antialiased`}
+                style={{ ["--font-dm-serif" as any]: "var(--font-dm-serif-display)" }}
             >
                 <Providers>{children}</Providers>
             </body>
